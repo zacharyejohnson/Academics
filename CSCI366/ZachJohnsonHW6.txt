@@ -1,0 +1,12 @@
+Team Members - 
+
+1. Zach Johnson
+2. Maxwell Wendtland
+3. Jake Riley
+
+Project Description - 
+
+Our project will model the NDSU Computer Science Department. 
+The user will be able to query data from the department regarding 
+students, courses, faculty, and more. The user can also add and 
+remove classes, students and faculty as the department changes. 
