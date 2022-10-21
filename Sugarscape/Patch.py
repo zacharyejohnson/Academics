@@ -10,5 +10,6 @@ class Patch():
         #The current quantity of a good held by a patch
         self.Q = maxQ
         self.good = good
+        self.agent = None
         
 

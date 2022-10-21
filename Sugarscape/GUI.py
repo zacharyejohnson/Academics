@@ -15,14 +15,12 @@ class GUI():
         self.canvas.pack()
         if self.live_visual:
             self.drawPatches()
-            
-            for ID, a in self.model.agent_dict.items():
-                self.drawAgent(a)
+            self.drawAgents()
             self.canvas.update()
             
     def drawPatches(self):
-        for i in self.model.patch_dict:
-            for patch in self.model.patch_dict[i].values():    
+        for i in self.model.patches_dict:
+            for patch in self.model.patches_dict[i].values():    
                 patch.image = self.canvas.create_rectangle(
  					patch.col * self.dimPatch,
  					patch.row * self.dimPatch,
@@ -31,15 +29,16 @@ class GUI():
  					fill=self.color(patch.Q - 1, patch.good),
  					width=0 
 				)
-    def drawAgent(self, agent):
-        agent.image = self.canvas.create_oval(
- 			agent.col * self.dimPatch + 2,
- 			agent.row * self.dimPatch + 2,
- 			(agent.col + 1) * self.dimPatch - 2,
- 			(agent.row + 1)* self.dimPatch - 2,
- 			fill='red',
- 			width=0
-		)
+    def drawAgents(self):
+        for agent in self.model.agent_dict.values(): 
+            agent.image = self.canvas.create_oval(
+                agent.col * self.dimPatch + 2,
+                agent.row * self.dimPatch + 2,
+                (agent.col + 1) * self.dimPatch - 2,
+                (agent.row + 1)* self.dimPatch - 2,
+                fill='red',
+                width=0
+            )
 
     def moveAgents(self):
         for agent in self.model.agent_dict.values():
@@ -48,8 +47,8 @@ class GUI():
  			agent.dy * self.dimPatch)
 
     def updatePatches(self):
-        for i in self.model.patch_dict:
-            for patch in self.model.patch_dict[i].values():    
+        for i in self.model.patches_dict:
+            for patch in self.model.patches_dict[i].values():    
                 self.canvas.itemconfig(patch.image, fill=self.color(patch.Q, 
                                                                     patch.good))
         
