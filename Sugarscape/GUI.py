@@ -66,18 +66,12 @@ class GUI():
 
 parent = Tk()
 parent.title = "Sugarscape"
-num_agents = 300
+num_agents = 500
 periods = 1000
-start = time.time()
 y = GUI(parent, num_agents, live_visual = True, every_t_frames = 1)
 y.model.runModel(periods)
-y.parent.quit()
-y.parent.destroy()
-end = time.time()
-elapse = end - start
 
-print("agents", "periods", "time", sep = "\t")
-print(num_agents, periods, elapse, sep = "\t")
-    
+
+
 if __name__ == "__main__":
     parent.mainloop()

@@ -64,11 +64,13 @@ class Model():
             random.shuffle(agent_list)
             for agent in agent_list:
                 agent.move()
+                agent.harvest()
+                agent.consume()
             if self.GUI.live_visual:
                 if period % self.GUI.every_t_frames == 0:
                     self.GUI.updatePatches()
-                    #self.GUI.moveAgents()
-                    #self.GUI.canvas.update()
+                    
+                    self.GUI.canvas.update()
                 
     def agentMove(self, agent): 
         pass
@@ -87,3 +89,4 @@ class Model():
             for patch in self.patches_dict[row].values():
                 if patch.Q < patch.maxQ:
                     patch.Q += 1
+        self.GUI.canvas.update()
