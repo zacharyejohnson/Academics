@@ -2,10 +2,12 @@ from tkinter import *
 from Model import *
 import time
 class GUI():
-    def __init__(self, parent, num_agents, live_visual, every_t_frames):
+    def __init__(self, parent, num_agents, live_visual, every_t_frames, mutate = True, genetic = True, agent_attributes=None, 
+                 model_attributes = None):
         self.parent = parent
-        self.model = Model(self, num_agents)
-        self.dimPatch = 16
+        self.model = Model(self, num_agents, mutate, genetic, live_visual,
+                           agent_attributes, model_attributes)
+        self.dimPatch = 12
         self.live_visual = live_visual
         self.every_t_frames = every_t_frames
 
@@ -29,6 +31,7 @@ class GUI():
  					fill=self.color(patch.Q - 1, patch.good),
  					width=0 
 				)
+
     def drawAgents(self):
         for agent in self.model.agent_dict.values(): 
             agent.image = self.canvas.create_oval(
@@ -40,11 +43,17 @@ class GUI():
                 width=0
             )
 
-    def moveAgents(self):
-        for agent in self.model.agent_dict.values():
-            self.canvas.move(agent.image, 
- 			agent.dx * self.dimPatch,
- 			agent.dy * self.dimPatch)
+    def draw_agent(self, agent): 
+        agent.image = self.canvas.create_oval(
+                agent.col * self.dimPatch + 2,
+                agent.row * self.dimPatch + 2,
+                (agent.col + 1) * self.dimPatch - 2,
+                (agent.row + 1)* self.dimPatch - 2,
+                fill=self.color,
+                width=0
+            )
+
+
 
     def updatePatches(self):
         for i in self.model.patches_dict:
@@ -61,15 +70,16 @@ class GUI():
                 hx = '0' + hx
             color += hx
         return color
-# 
 
 
 parent = Tk()
 parent.title = "Sugarscape"
-num_agents = 500
+num_agents = 200
 periods = 1000
 y = GUI(parent, num_agents, live_visual = True, every_t_frames = 1)
 y.model.runModel(periods)
+parent.quit()
+
 
 
 
