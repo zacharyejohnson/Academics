@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 import random
 import math
@@ -26,7 +27,7 @@ class Model():
         self.goods_params = {good:{"min":5,
                                    "max":25} for good in self.goods}
         # rates of good consumption 
-        self.consumption_rate = {good : .1 for good in self.goods}
+        self.consumption_rate = {good : .3 for good in self.goods}
         # initial rates of demand 
         self.init_demand_vals = {"price": {"min": 0.5, "max": 2.0}, 
                                 "quantity": {"min": 10, "max": 25}}
@@ -85,60 +86,80 @@ class Model():
         return i, j
 
     def runModel(self, periods):
+        
         for period in range(1, periods + 1):
+            start = time.time()
             agent_list = list(self.agent_dict.values())
             self.growPatches()
             random.shuffle(agent_list)
+            goods = {good: [] for good in self.goods}
             for agent in agent_list:
-                agent.update_params()
-            for agent in agent_list:
-                agent.move()
-                agent.harvest()
-                agent.consume()
-                agent.trade()
-                self.agent_reproduce(agent)
+            #     agent.update_params()
+            # for agent in agent_list:
+                alive = agent.check_alive()
+                if alive: 
+                    agent.move()
+                    agent.harvest()
+                    agent.trade()
+                    agent.consume()
+                    agent.check_alive()
+                    self.agent_reproduce(agent)
+                    agent.update_params()
+                    for good in goods: 
+                        goods[good].append(agent.goods[good])
+                else: 
+                    continue
             if self.GUI.live_visual:
                 if period % self.GUI.every_t_frames == 0:
                     self.GUI.updatePatches()
                     self.GUI.canvas.update()
+            average_goods = {good: np.average(goods[good]) for good in self.goods}
+            sum_goods = {good: np.sum(goods[good]) for good in self.goods}
+            print("Average Goods: " , average_goods)
+            print("Total Goods: ", sum_goods)
+            end = time.time()
+            diff = end-start
+            print(diff)
+                    
 
     # the reproduce funtion is implemented in model class to avoid circular dependencies in agent class 
     def agent_reproduce(self, agent): 
-        can_reproduce = True
-        for good in agent.goods: 
-            if agent.goods[good] < agent.reproduction_criteria[good]: 
-                can_reproduce = False 
-                break
-        
-        if can_reproduce: 
-
-            def child_breed(): 
-                breed = random.choices(list(self.breed_probabilities.keys()), 
-                                        weights=list(self.breed_probabilities.values()), k=1)
-                return breed[0]
-
-            child_breed = child_breed()
-
-            self.total_agents_created += 1
-            row, col = self.chooseRandomEmptyPatch()  
-            del self.empty_patches[row, col]
-            ID = self.total_agents_created
-
-            if child_breed == "basic": 
-                self.agent_dict[ID] =  BasicAgent(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
-            elif child_breed == "herder": 
-                self.agent_dict[ID] =  Herder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
-            else: 
-                print("error choosing child breed")
+        if agent in self.agent_dict.values(): 
+            can_reproduce = True
+            for good in agent.goods: 
+                if agent.goods[good] < agent.reproduction_criteria[good]: 
+                    can_reproduce = False 
+                    break
             
-            # add good quantities to new agent, deduct from parent
-            self.agent_dict[ID].goods = {}
-            for good in agent.goods:
-                agent.goods[good] -= agent.reproduction_criteria[good]
-                self.agent_dict[ID].goods[good] = agent.reproduction_criteria[good]
-            self.patches_dict[row][col].agent =  self.agent_dict[ID]
-            self.GUI.draw_agent(self.agent_dict[ID])
-            self.reproduced = True
+            if can_reproduce: 
+
+                def child_breed(): 
+                    breed = random.choices(list(self.breed_probabilities.keys()), 
+                                            weights=list(self.breed_probabilities.values()), k=1)
+                    return breed[0]
+
+                child_breed = child_breed()
+
+                self.total_agents_created += 1
+                row, col = self.chooseRandomEmptyPatch()  
+                del self.empty_patches[row, col]
+                ID = self.total_agents_created
+
+                if child_breed == "basic": 
+                    self.agent_dict[ID] =  BasicAgent(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
+                elif child_breed == "herder": 
+                    self.agent_dict[ID] =  Herder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
+                else: 
+                    print("error choosing child breed")
+                
+                # add good quantities to new agent, deduct from parent
+                self.agent_dict[ID].goods = {}
+                for good in agent.goods:
+                    agent.goods[good] -= agent.reproduction_criteria[good]
+                    self.agent_dict[ID].goods[good] = agent.reproduction_criteria[good]
+                self.patches_dict[row][col].agent =  self.agent_dict[ID]
+                self.GUI.draw_agent(self.agent_dict[ID])
+                self.reproduced = True
 
     
     def growPatches(self):

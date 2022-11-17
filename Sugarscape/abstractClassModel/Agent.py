@@ -1,4 +1,5 @@
 import random
+import time
 import numpy as np
 import copy
 from scipy.stats.mstats import gmean
@@ -79,7 +80,10 @@ class Agent():
                     self.mutate_rate = self.model.max_mutate_rate
 
             def set_exchange_target(): 
+                good1 = self.model.goods[0]
+                good2 = self.model.goods[1]
                 self.exchange_target = random.choice(self.model.goods)
+                self.not_exchange_target = good1 if self.exchange_target == good2 else good2
 
             set_goods()
             set_reservation_demand()
@@ -110,12 +114,12 @@ class Agent():
             # use attributes to define inheritence
             self.copy_attributes = copy.copy(vars(self))
             # redefine "good" or else values are drawn from parent for children
-            self.copy_attributes["good"] = {}
+            self.copy_attributes["goods"] = {}
             for good in self.model.goods_params:
                 # set inheritence of good as starting values for firm
                 # only reproduce if you can provide new firm max starting value
-                self.copy_attributes["good"][good] = self.model.goods_params[good]["max"]
-            for key in ["col", "row", "dx", "dy", "id", "good", "wealth"]:
+                self.copy_attributes["goods"][good] = self.model.goods_params[good]["max"]
+            for key in ["col", "row", "patch", "id"]:
                 #, "target", "exchange_target"]:#,"reservation_demand"]:
                 try:
                     del self.copy_attributes[key]
@@ -150,19 +154,16 @@ class Agent():
     def consume(self):
         for good in self.goods:
                 self.goods[good] -= self.consumption_rate[good]
-                if self.goods[good] <= 0: 
-                    self.die()
-                    break
 
     def die(self):
+        self.model.empty_patches[self.row, self.col] = self.patch
         del self.model.agent_dict[self.id]
         self.delete_image()
         
 
     def harvest(self): 
-        agent_patch = self.model.patches_dict[self.row][self.col]
-        self.goods[agent_patch.good] += agent_patch.Q
-        agent_patch.Q = 0
+        self.goods[self.patch.good] += self.patch.Q
+        self.patch.Q = 0
 
     # def reproduce(self): 
     #     can_reproduce = True
@@ -202,12 +203,18 @@ class Agent():
     def wealth(self): 
             return sum(self.goods[good] / self.model.consumption_rate[good] for good in self.goods)
 
+    def check_alive(self): 
+        for good, val in self.goods.items(): 
+            if val <= 0: 
+                self.die()
+                return False 
+        return True
 
     def trade(self):
             
             def askToTrade(partner):
                 #check if partner is looking for good agent is selling
-                right_good = self.exchange_target == partner.exchange_target
+                right_good = self.exchange_target != partner.exchange_target
 
                 return right_good
 
@@ -225,23 +232,28 @@ class Agent():
                 return can_trade, price
             
             def executeTrade(partner, price):
-                self_res_min = self.reservation_demand[self.not_exchange_target]["quantity"]
-                partner_res_min = self.reservation_demand[self.not_exchange_target]["quantity"]
-                while self.goods[self.not_exchange_target] > self_res_min and\
-                    self.goods[self.not_exchange_target] > price and\
-                    partner.goods[self.not_exchange_target] > partner_res_min and\
-                    partner.goods[self.not_exchange_target] > 1:
-                    
-                    self.goods[self.exchange_target] += 1
-                    self.goods[self.not_exchange_target] -= price
-                    partner.goods[self.exchange_target] -= 1
-                    partner.goods[self.not_exchange_target] += price
+                target = self.exchange_target
+                not_target = self.not_exchange_target
+                self_res_min = self.reservation_demand[not_target]["quantity"]
+                partner_res_min = partner.reservation_demand[not_target]["quantity"]
+                # while the agents have at least their minimum required amount of goods and can afford to pay the price, continue trading 
+                
+                
+                while self.goods[not_target] > self_res_min and\
+                    self.goods[not_target] > price and\
+                    partner.goods[not_target] > partner_res_min and\
+                    partner.goods[not_target] > 1:
+
+                    self.goods[target] += 1
+                    self.goods[not_target] -= price
+                    partner.goods[target] -= 1
+                    partner.goods[not_target] += price
 
             neighbor_patches = self.neighbors()
             
             random.shuffle(neighbor_patches)
             for patch in neighbor_patches: 
-                if patch.agent != None: 
+                if patch.agent != None and patch.agent is not self: 
                     partner = patch.agent
                     right_good = askToTrade(partner)
                     if right_good: 
@@ -249,7 +261,7 @@ class Agent():
                     
                     # check if partner has appropriate goods and WTP, WTA
                     
-                        if can_trade == True:
+                        if can_trade:
                                                 
                             # execute trades
                             executeTrade(partner, price)
@@ -267,10 +279,12 @@ class Agent():
         move_patch = self.max_empty_neighbor()
         if move_patch != None: 
             self.patch.agent = None
+            self.model.empty_patches[self.row, self.col] = self.patch
             self.move_image(move_patch)
             self.col = move_patch.col
             self.row = move_patch.row
             self.patch = self.model.patches_dict[self.row][self.col]
+            del self.model.empty_patches[self.row, self.col]
             self.patch.agent = self
 
     # move image of agent to desired row, col

@@ -72,9 +72,9 @@ class GUI():
 
 parent = Tk()
 parent.title = "Sugarscape"
-num_agents = 2000
-periods = 1000
-y = GUI(parent, num_agents, live_visual = True, every_t_frames = 1)
+num_agents = 1250
+periods = 10000
+y = GUI(parent, num_agents, live_visual = True, every_t_frames = 10)
 y.model.runModel(periods)
 parent.quit()
 
