@@ -7,7 +7,7 @@ class GUI():
         self.parent = parent
         self.model = Model(self, num_agents, mutate, genetic, live_visual,
                            agent_attributes, model_attributes)
-        self.dimPatch = 12
+        self.dimPatch = 16
         self.live_visual = live_visual
         self.every_t_frames = every_t_frames
 
@@ -40,7 +40,7 @@ class GUI():
                 (agent.col + 1) * self.dimPatch - 2,
                 (agent.row + 1)* self.dimPatch - 2,
                 fill='red',
-                width=0
+                width=0 
             )
 
     def draw_agent(self, agent): 
@@ -72,9 +72,9 @@ class GUI():
 
 parent = Tk()
 parent.title = "Sugarscape"
-num_agents = 1250
+num_agents = 750
 periods = 10000
-y = GUI(parent, num_agents, live_visual = True, every_t_frames = 10)
+y = GUI(parent, num_agents, live_visual = True, every_t_frames = 1)
 y.model.runModel(periods)
 parent.quit()
 

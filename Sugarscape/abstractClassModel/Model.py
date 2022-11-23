@@ -1,3 +1,4 @@
+import copy
 import time
 import pandas as pd
 import random
@@ -6,17 +7,20 @@ from randomdict import RandomDict
 from Patch import *
 from BasicAgent import BasicAgent
 from Herder import Herder
+from Arbitrageur import Arbitrageur
 import numpy as np 
 #Model.py
 class Model():
     def __init__(self, gui, num_agents, mutate, genetic, live_visual, agent_attributes,
                  model_attributes):
-        self.GUI = gui
+        
         self.initial_population = num_agents
         self.mutate = mutate
         self.genetic = genetic
         self.model_attributes = model_attributes
         self.live_visual = live_visual
+        if self.live_visual: 
+            self.GUI = gui
 
 ###################### MODEL PARAMETERS ##############################
         # goods to be included in model 
@@ -27,7 +31,7 @@ class Model():
         self.goods_params = {good:{"min":5,
                                    "max":25} for good in self.goods}
         # rates of good consumption 
-        self.consumption_rate = {good : .3 for good in self.goods}
+        self.consumption_rate = {good : .5 for good in self.goods}
         # initial rates of demand 
         self.init_demand_vals = {"price": {"min": 0.5, "max": 2.0}, 
                                 "quantity": {"min": 10, "max": 25}}
@@ -39,11 +43,11 @@ class Model():
 
         self.cross_over_rate = 0.5
 
-        self.primary_breeds = {"basic"}
+        self.primary_breeds = {"basic", "arbitrageur"}
         self.secondary_breeds = {"herder"}
         self.breeds = self.primary_breeds.union(self.secondary_breeds)
 
-        self.breed_probabilities = {"basic": 1, "herder": .50}
+        self.breed_probabilities = {"basic": 1, "herder": .50, "arbitrageur": .50}
 
         self.transaction_prices = []
         self.average_price = np.nan
@@ -75,15 +79,15 @@ class Model():
             self.total_agents_created += 1
             ID = self.total_agents_created
             row, col = self.chooseRandomEmptyPatch()  
-            del self.empty_patches[row, col]
             #all agents are initially basic 
             agent = BasicAgent(self, row, col, ID)
             self.agent_dict[ID] = agent
             self.patches_dict[row][col].agent = agent
         
     def chooseRandomEmptyPatch(self):
-        i, j = self.empty_patches.random_key() 
-        return i, j
+        row, col = self.empty_patches.random_key() 
+        del self.empty_patches[row, col]
+        return row, col
 
     def runModel(self, periods):
         
@@ -92,7 +96,6 @@ class Model():
             agent_list = list(self.agent_dict.values())
             self.growPatches()
             random.shuffle(agent_list)
-            goods = {good: [] for good in self.goods}
             for agent in agent_list:
             #     agent.update_params()
             # for agent in agent_list:
@@ -102,24 +105,20 @@ class Model():
                     agent.harvest()
                     agent.trade()
                     agent.consume()
-                    agent.check_alive()
                     self.agent_reproduce(agent)
                     agent.update_params()
-                    for good in goods: 
-                        goods[good].append(agent.goods[good])
                 else: 
+                    if self.live_visual: 
+                        self.GUI.canvas.delete(agent.image)
                     continue
-            if self.GUI.live_visual:
+            if self.live_visual:
                 if period % self.GUI.every_t_frames == 0:
                     self.GUI.updatePatches()
                     self.GUI.canvas.update()
-            average_goods = {good: np.average(goods[good]) for good in self.goods}
-            sum_goods = {good: np.sum(goods[good]) for good in self.goods}
-            print("Average Goods: " , average_goods)
-            print("Total Goods: ", sum_goods)
             end = time.time()
             diff = end-start
             print(diff)
+            print("population: " + str(len(self.agent_dict)))
                     
 
     # the reproduce funtion is implemented in model class to avoid circular dependencies in agent class 
@@ -142,24 +141,27 @@ class Model():
 
                 self.total_agents_created += 1
                 row, col = self.chooseRandomEmptyPatch()  
-                del self.empty_patches[row, col]
                 ID = self.total_agents_created
 
                 if child_breed == "basic": 
                     self.agent_dict[ID] =  BasicAgent(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
                 elif child_breed == "herder": 
                     self.agent_dict[ID] =  Herder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
+                elif child_breed == "arbitrageur": 
+                    self.agent_dict[ID] =  Arbitrageur(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
                 else: 
                     print("error choosing child breed")
-                
+
                 # add good quantities to new agent, deduct from parent
                 self.agent_dict[ID].goods = {}
-                for good in agent.goods:
+                for good in self.goods:
                     agent.goods[good] -= agent.reproduction_criteria[good]
-                    self.agent_dict[ID].goods[good] = agent.reproduction_criteria[good]
+                    self.agent_dict[ID].goods[good] = 0
+                    self.agent_dict[ID].goods[good] += agent.reproduction_criteria[good]
                 self.patches_dict[row][col].agent =  self.agent_dict[ID]
-                self.GUI.draw_agent(self.agent_dict[ID])
-                self.reproduced = True
+                if self.live_visual: 
+                    self.GUI.draw_agent(self.agent_dict[ID])
+                agent.reproduced = True
 
     
     def growPatches(self):
