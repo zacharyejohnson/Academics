@@ -1,15 +1,18 @@
 from tkinter import *
 from Model import *
 import time
+from matplotlib import pyplot as plt
 class GUI():
-    def __init__(self, parent, num_agents, live_visual, every_t_frames, mutate = True, genetic = True, agent_attributes=None, 
+    def __init__(self, parent, num_agents, live_visual, plots, every_t_frames, mutate = True, genetic = True, agent_attributes=None, 
                  model_attributes = None):
         self.parent = parent
-        self.model = Model(self, num_agents, mutate, genetic, live_visual,
-                           agent_attributes, model_attributes)
+        self.plots = plots
+        self.model = Model(self, num_agents, mutate, genetic, live_visual, plots, agent_attributes, model_attributes)
         self.dimPatch = 16
         self.live_visual = live_visual
         self.every_t_frames = every_t_frames
+
+        
 
         canvasWidth = self.model.cols * self.dimPatch
         canvasHeight= self.model.rows * self.dimPatch
@@ -40,7 +43,7 @@ class GUI():
                 (agent.col + 1) * self.dimPatch - 2,
                 (agent.row + 1)* self.dimPatch - 2,
                 fill='red',
-                width=0 
+                width=agent.outline_width
             )
 
     def draw_agent(self, agent): 
@@ -50,7 +53,7 @@ class GUI():
                     (agent.col + 1) * self.dimPatch - 2,
                     (agent.row + 1)* self.dimPatch - 2,
                     fill=agent.color,
-                    width=0
+                    width=agent.outline_width
                 )
 
     def updatePatches(self):
@@ -74,7 +77,7 @@ parent = Tk()
 parent.title = "Sugarscape"
 num_agents = 750
 periods = 10000
-y = GUI(parent, num_agents, live_visual = True, every_t_frames = 1)
+y = GUI(parent, num_agents, live_visual = True, plots = True, every_t_frames = 100)
 y.model.runModel(periods)
 parent.quit()
 

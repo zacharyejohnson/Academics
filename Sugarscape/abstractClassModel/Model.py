@@ -6,12 +6,16 @@ import math
 from randomdict import RandomDict
 from Patch import *
 from BasicAgent import BasicAgent
-from Herder import Herder
+from BasicHerder import BasicHerder
 from Arbitrageur import Arbitrageur
+from ArbitrageurHerder import ArbitrageurHerder
 import numpy as np 
+import matplotlib
+matplotlib.use('TkAgg',force=True)
+from matplotlib import pyplot as plt
 #Model.py
 class Model():
-    def __init__(self, gui, num_agents, mutate, genetic, live_visual, agent_attributes,
+    def __init__(self, gui, num_agents, mutate, genetic, live_visual, plots, agent_attributes,
                  model_attributes):
         
         self.initial_population = num_agents
@@ -19,6 +23,7 @@ class Model():
         self.genetic = genetic
         self.model_attributes = model_attributes
         self.live_visual = live_visual
+        self.plots = plots
         if self.live_visual: 
             self.GUI = gui
 
@@ -31,7 +36,7 @@ class Model():
         self.goods_params = {good:{"min":5,
                                    "max":25} for good in self.goods}
         # rates of good consumption 
-        self.consumption_rate = {good : .5 for good in self.goods}
+        self.consumption_rate = {good : 0.5 for good in self.goods}
         # initial rates of demand 
         self.init_demand_vals = {"price": {"min": 0.5, "max": 2.0}, 
                                 "quantity": {"min": 10, "max": 25}}
@@ -44,13 +49,14 @@ class Model():
         self.cross_over_rate = 0.5
 
         self.primary_breeds = {"basic", "arbitrageur"}
-        self.secondary_breeds = {"herder"}
+        self.secondary_breeds = {"herder", "basic"}
         self.breeds = self.primary_breeds.union(self.secondary_breeds)
 
-        self.breed_probabilities = {"basic": 1, "herder": .50, "arbitrageur": .50}
+        self.primary_breeds_probabilities = {"basic": 1, "arbitrageur": 0.5}
+        self.secondary_breeds_probabilities = {"basic": 1, "herder": 0.5}
 
-        self.transaction_prices = []
-        self.average_price = np.nan
+        self.transaction_prices = {good:[] for good in self.goods}
+        self.average_price = {good: np.nan for good in self.goods}
         self.total_exchanges = 0
 
         self.sugarMap = pd.read_csv('sugar-map.txt', header = None, sep = ' ')
@@ -90,8 +96,36 @@ class Model():
         return row, col
 
     def runModel(self, periods):
+        population_data = []
+        agents_created = []
+        total_exchanges = []
+        period_list = []
         
-        for period in range(1, periods + 1):
+        for period in range(0, periods + 1):
+            population_data.append(len(self.agent_dict))
+            agents_created.append(self.total_agents_created)
+            total_exchanges.append(self.total_exchanges)
+            period_list.append(period)
+            if self.plots and period % self.GUI.every_t_frames == 0:
+                if period == 0: 
+                    plt.ion()
+                    fig, axs = plt.subplots(3, figsize = (15,5))
+                    axs[0].plot(period_list, population_data)
+                    axs[1].plot(period_list, agents_created)
+                    axs[2].plot(period_list, total_exchanges)
+                    # ax.plot(period_list, self.total_agents_created)
+                else: 
+                    # line2.set_ydata(self.total_agents_created)
+                    axs[0].plot(period_list, population_data)
+                    axs[1].plot(period_list, agents_created)
+                    axs[2].plot(period_list, total_exchanges)
+                    plt.draw()
+                    plt.pause(0.0001)
+                    
+                
+
+                
+
             start = time.time()
             agent_list = list(self.agent_dict.values())
             self.growPatches()
@@ -115,6 +149,8 @@ class Model():
                 if period % self.GUI.every_t_frames == 0:
                     self.GUI.updatePatches()
                     self.GUI.canvas.update()
+
+
             end = time.time()
             diff = end-start
             print(diff)
@@ -133,24 +169,29 @@ class Model():
             if can_reproduce: 
 
                 def child_breed(): 
-                    breed = random.choices(list(self.breed_probabilities.keys()), 
-                                            weights=list(self.breed_probabilities.values()), k=1)
-                    return breed[0]
+                    primary_breed = random.choices(list(self.primary_breeds_probabilities.keys()), 
+                                            weights=list(self.primary_breeds_probabilities.values()), k=1)[0]
+                    secondary_breed = random.choices(list(self.secondary_breeds_probabilities.keys()), 
+                                            weights=list(self.secondary_breeds_probabilities.values()), k=1)[0]
+                    return primary_breed, secondary_breed
 
                 child_breed = child_breed()
 
                 self.total_agents_created += 1
                 row, col = self.chooseRandomEmptyPatch()  
                 ID = self.total_agents_created
-
-                if child_breed == "basic": 
+                
+                if child_breed == ("basic", "basic"): 
                     self.agent_dict[ID] =  BasicAgent(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
-                elif child_breed == "herder": 
-                    self.agent_dict[ID] =  Herder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
-                elif child_breed == "arbitrageur": 
+                elif child_breed == ("basic", "herder"): 
+                    self.agent_dict[ID] =  BasicHerder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
+                elif child_breed == ("arbitrageur", "basic"): 
                     self.agent_dict[ID] =  Arbitrageur(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
+                elif child_breed == ("arbitrageur", "herder"):
+                    self.agent_dict[ID] = ArbitrageurHerder(row=row, col=col, ID=ID, hasParent = True,  **agent.copy_attributes)
                 else: 
-                    print("error choosing child breed")
+                    print("error")
+                    
 
                 # add good quantities to new agent, deduct from parent
                 self.agent_dict[ID].goods = {}

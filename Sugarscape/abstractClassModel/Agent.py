@@ -15,10 +15,12 @@ class Agent():
         #agents can only move to von neumann neighbors 
         self.move_directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
         self.live_visual = self.model.live_visual
+        self.outline_width = 0
         if self.live_visual:
             self.gui = self.model.GUI
         self.consumption_rate = self.model.consumption_rate
         self.vision = random.randint(1, self.model.max_vision)
+        
         
 
         # this method is common to all types of agents. They choose parameters and mutate in identical fashion
@@ -70,11 +72,15 @@ class Agent():
 
             def set_child_breed_probabilities(): 
                 if has_parent:
-                    self.breed_probabilities = {breed: (prob + (random.random() * (self.mutate_rate)))
+                    self.primary_breeds_probabilities = {breed: (prob + (random.random() * (self.mutate_rate)))
                                             if random.random() < self.mutate_rate else prob
-                                            for breed, prob in kwargs["breed_probabilities"].items()}
+                                            for breed, prob in kwargs["primary_breeds_probabilities"].items()}
+                    self.secondary_breeds_probabilities = {breed: (prob + (random.random() * (self.mutate_rate)))
+                                            if random.random() < self.mutate_rate else prob
+                                            for breed, prob in kwargs["secondary_breeds_probabilities"].items()}
                 else: 
-                    self.breed_probabilities = model.breed_probabilities
+                    self.primary_breeds_probabilities = model.primary_breeds_probabilities
+                    self.secondary_breeds_probabilities = model.secondary_breeds_probabilities
 
             
 
@@ -141,20 +147,23 @@ class Agent():
         define_inheritance()
         self.reproduced = False
         self.top_wealth = self.wealth()
+        self.transaction_prices = {good: [] for good in self.model.goods}
 
     def update_params(self):
 
         def set_target_good(): 
             good1 = random.choice(self.model.goods)
             good2 = "water" if good1 == "sugar" else "sugar"
-            self.exchange_target = good1 if self.goods[good1] < self.goods[good2] else good2
-            self.not_exchange_target = good2 if self.exchange_target == good1 else good1
+            self.exchange_target = good1 if self.goods[good1] < self.reservation_demand[good1]["quantity"] else good2
 
         def check_reservation(): 
+            # Rules simulating the law of demand
             for good, val in self.goods.items():
-                if val < self.reservation_demand[good]["quantity"]:
+                # excess demand for good
+                if val > self.reservation_demand[good]["quantity"]:
                     self.reservation_demand[good]["price"] *= self.price_change
                     self.reservation_demand[good]["quantity"] /= self.quantity_change
+                # excess supply of good
                 if val < self.reservation_demand[good]["quantity"]:
                     self.reservation_demand[good]["price"] /= self.price_change
                     self.reservation_demand[good]["quantity"] *= self.quantity_change
@@ -250,15 +259,21 @@ class Agent():
                 partner_target_res_min = self.partner.reservation_demand[self.exchange_target]["quantity"]
                 self_not_target_res_min = self.reservation_demand[self.not_exchange_target]["quantity"]
                 partner_not_target_res_min = self.partner.reservation_demand[self.not_exchange_target]["quantity"]
+                self_res_min_price = self.reservation_demand[self.not_exchange_target]["price"]
+                partner_res_min_price = self.partner.reservation_demand[self.exchange_target]["price"]
                 while self.goods[self.not_exchange_target] > self_not_target_res_min and\
-                    self.partner.goods[self.not_exchange_target] > partner_not_target_res_min and\
-                    self.goods[self.exchange_target] > self_target_res_min and\
-                    self.partner.goods[self.exchange_target] > partner_target_res_min:
+                    self.partner.goods[self.not_exchange_target] < partner_not_target_res_min and\
+                    self.goods[self.exchange_target] < self_target_res_min and\
+                    self.partner.goods[self.exchange_target] > partner_target_res_min and\
+                    price > self_res_min_price:
                     
                     self.goods[self.exchange_target] += 1
                     self.goods[self.not_exchange_target] -= price
                     self.partner.goods[self.exchange_target] -= 1
                     self.partner.goods[self.not_exchange_target] += price
+
+                    self.transaction_prices[self.exchange_target].append(price)
+                    self.model.total_exchanges += 1
 
             neighbor_patches = self.neighbors()
             
