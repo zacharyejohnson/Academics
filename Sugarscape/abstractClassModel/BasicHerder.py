@@ -22,10 +22,10 @@ class BasicHerder(BasicAgent):
                         setattr(self, attr, val)
 
         if self.partner != None: 
-            if self.partner.wealth() > self.top_wealth:
+            if self.partner.wealth > self.top_wealth:
                 herd_traits(self.partner)
-                self.wealthiest = self.partner
-                self.top_wealth = self.partner.wealth()
+                self.top_wealth = self.partner.wealth
+
     def update_params(self):
         super().update_params()
         if self.wealthiest != self: 

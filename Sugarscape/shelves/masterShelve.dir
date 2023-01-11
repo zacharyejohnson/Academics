@@ -1,0 +1,6 @@
+'transaction_prices', (0, 413)
+'wealth', (512, 377)
+'population', (1024, 389)
+'total_agents_created', (1536, 419)
+'total_exchanges', (2048, 404)
+'average_price', (2560, 398)

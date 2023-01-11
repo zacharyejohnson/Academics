@@ -22,9 +22,15 @@ class Agent():
         self.vision = random.randint(1, self.model.max_vision)
         
         
+        
+        
 
         # this method is common to all types of agents. They choose parameters and mutate in identical fashion
-        def select_parameters(mutate = False, **mutation_kwargs):
+        def select_parameters(mutate = False, goods = True, wealth = True, reservation_demand = True, 
+                             reproduction_criteria= True, breed = True, 
+                             exchange_target = True, 
+                             vision = True, mutate_rate = True,
+                             **mutate_kwargs):
 
             def set_goods(): 
                     self.goods = {good:random.randint(vals["min"], vals["max"])
@@ -38,7 +44,9 @@ class Agent():
                     max_res_p = init_vals["price"]["max"]
 
                     self.reservation_demand = {good:{
-                            "quantity": min_res_q + random.random() * (max_res_q - min_res_q)} for good in self.model.goods}
+                        "quantity": min_res_q + random.random()
+                        * (max_res_q - min_res_q)}
+                        for good in self.model.goods}
 
                     self.reservation_demand["sugar"]["price"] = np.e ** (
                         np.log(min_res_p) + random.random() * (np.log(max_res_p) - np.log(min_res_p)))
@@ -99,15 +107,41 @@ class Agent():
                 good2 = self.model.goods[1]
                 self.exchange_target = random.choice(self.model.goods)
                 self.not_exchange_target = good1 if self.exchange_target == good2 else good2
-            
-            set_goods()
-            set_reservation_demand()
-            set_reproduction_level()
-            set_mutate_rate()
-            set_child_breed_probabilities()
-            set_exchange_target()
 
+            # set and mutate, or not, based on mutation_kwargs
+            if goods: 
+                set_goods()
             self.top_wealth  = self.wealth()
+            self.wealth = self.wealth()
+            
+            if reservation_demand: 
+                set_reservation_demand()
+
+            if reproduction_criteria:     
+                set_reproduction_level()
+
+            if mutate_rate and self.model.mutate: 
+                set_mutate_rate()
+
+            if breed: 
+                set_child_breed_probabilities()
+
+            if exchange_target: 
+                set_exchange_target()
+
+            if vision:
+                    self.vision = random.randint(1, self.model.max_vision )
+
+            min_denominator = 10 if not mutate or "present_price_weight" not in kwargs else\
+                int(kwargs["present_price_weight"] / (1 + self.mutate_rate))
+            max_denominator = 100 if not mutate  or "present_price_weight" not in kwargs else\
+                int(kwargs["present_price_weight"] * (1 + self.mutate_rate))
+            self.present_price_weight = random.randint(min_denominator, max_denominator)
+            self.expected_price = self.reservation_demand["sugar"]["price"]
+            targets = copy.copy(self.model.goods)
+            random.shuffle(targets)
+            self.target = targets.pop()
+            self.not_target = targets[0]
 
         def mutate(): 
             mutate_dict = {key: True if random.random() < self.mutate_rate else False for key in kwargs.keys()}
@@ -117,7 +151,7 @@ class Agent():
         def define_inheritance(): 
             # use attributes to define inheritence
             self.copy_attributes = copy.copy(vars(self))
-            for key in ["col", "row", "patch", "id", "goods"]:
+            for key in ["col", "row", "patch", "id"]:
                 #, "target", "exchange_target"]:#,"reservation_demand"]:
                 try:
                     del self.copy_attributes[key]
@@ -144,10 +178,10 @@ class Agent():
         
         else:
             select_parameters()
+
         define_inheritance()
         self.reproduced = False
-        self.top_wealth = self.wealth()
-        self.transaction_prices = {good: [] for good in self.model.goods}
+        self.transaction_prices = []
 
     def update_params(self):
 
@@ -158,15 +192,35 @@ class Agent():
 
         def check_reservation(): 
             # Rules simulating the law of demand
-            for good, val in self.goods.items():
+
+            ### !!!! For loop should be rewritten if number of goods > 2 !!!!
+            goods = self.goods.keys()
+            for good in goods:
+                adjust_other_price = False
+                # Make a list of the good not selected, select index 0 and name other_good
+                other_good = [good_ for good_ in goods if good_ != good][0]
                 # excess demand for good
-                if val > self.reservation_demand[good]["quantity"]:
+                if self.goods[good] < self.reservation_demand[good]["quantity"]:
                     self.reservation_demand[good]["price"] *= self.price_change
                     self.reservation_demand[good]["quantity"] /= self.quantity_change
+                    adjust_other_price = True
                 # excess supply of good
-                if val < self.reservation_demand[good]["quantity"]:
+                elif self.goods[good] > self.reservation_demand[good]["quantity"]:
                     self.reservation_demand[good]["price"] /= self.price_change
                     self.reservation_demand[good]["quantity"] *= self.quantity_change
+                    adjust_other_price = True
+                if adjust_other_price == True:
+                    self.reservation_demand[other_good]["price"] = 1 / self.reservation_demand[good]["price"]
+
+
+
+                # if self.goods["water"] < self.reservation_demand["water"]["quantity"]:
+                #     self.reservation_demand["water"]["quantity"] /= self.quantity_change
+                # # excess supply of good
+                # if self.goods["water"] > self.reservation_demand["water"]["quantity"]:
+                #     self.reservation_demand["water"]["quantity"] *= self.quantity_change
+
+                # self.reservation_demand["water"]["price"] = 1 / self.reservation_demand["sugar"]["price"]
 
         set_target_good()
         check_reservation()
@@ -230,8 +284,6 @@ class Agent():
                 alive =  False
         return alive
 
-
-
     def trade(self):
             
             def askToTrade(partner):
@@ -254,25 +306,28 @@ class Agent():
                 
                 return price, can_trade
             
-            def executeTrade(price):
-                self_target_res_min = self.reservation_demand[self.exchange_target]["quantity"]
-                partner_target_res_min = self.partner.reservation_demand[self.exchange_target]["quantity"]
-                self_not_target_res_min = self.reservation_demand[self.not_exchange_target]["quantity"]
-                partner_not_target_res_min = self.partner.reservation_demand[self.not_exchange_target]["quantity"]
-                self_res_min_price = self.reservation_demand[self.not_exchange_target]["price"]
-                partner_res_min_price = self.partner.reservation_demand[self.exchange_target]["price"]
-                while self.goods[self.not_exchange_target] > self_not_target_res_min and\
-                    self.partner.goods[self.not_exchange_target] < partner_not_target_res_min and\
-                    self.goods[self.exchange_target] < self_target_res_min and\
-                    self.partner.goods[self.exchange_target] > partner_target_res_min and\
-                    price > self_res_min_price:
+            def executeTrade(partner, price):
+                    
+                self_res_min = self.reservation_demand[self.not_exchange_target]["quantity"]
+                partner_res_min = partner.reservation_demand[self.exchange_target]["quantity"]
+                partner_res_min_price = partner.reservation_demand[self.not_exchange_target]["price"]
+                self_res_min_price = 1 / self.reservation_demand[self.exchange_target]["price"]
+                while self.goods[self.exchange_target] > self_res_min and\
+                    self.goods[self.not_exchange_target] > price and\
+                    partner.goods[self.not_exchange_target] > partner_res_min and\
+                    price > partner_res_min_price and\
+                    partner.goods[self.exchange_target] > 1:
                     
                     self.goods[self.exchange_target] += 1
                     self.goods[self.not_exchange_target] -= price
-                    self.partner.goods[self.exchange_target] -= 1
-                    self.partner.goods[self.not_exchange_target] += price
+                    partner.goods[self.exchange_target] -= 1
+                    partner.goods[self.not_exchange_target] += price
+                    
+                    
+                    self.expected_price = (self.expected_price * (
+                        self.present_price_weight) + price) / self.present_price_weight
 
-                    self.transaction_prices[self.exchange_target].append(price)
+                    self.model.transaction_prices[self.exchange_target].append(price)
                     self.model.total_exchanges += 1
 
             neighbor_patches = self.neighbors()
@@ -289,9 +344,9 @@ class Agent():
                     else: 
                         price, can_trade = None, False
                     if can_trade: 
-                            executeTrade(price)
-
-                            break
+                        executeTrade(self.partner, price)
+                        #print(price)
+                        break
                
             
                             
