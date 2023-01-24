@@ -1,15 +1,19 @@
+import copy
+import gc
+import os
+import time
 from tkinter import *
-from Model import *
+
 from DataAggregator import *
 from memory_profiler import memory_usage
-import copy
-import time
-import os
-import gc
+
+from Model import *
+
 
 class GUI():
-    def __init__(self, name, run, num_agents, live_visual, plots, every_t_frames_GUI = 100, every_t_frames_plots=100, 
-                 mutate = False, genetic = False, agent_attributes=None, 
+    def __init__(self, name, run, num_agents, live_visual, plots,
+                 every_t_frames_GUI = 2, every_t_frames_plots=100, 
+                 mutate = True, genetic = True, agent_attributes=None, 
                  model_attributes = None):
         if live_visual:
             self.parent = Tk()
@@ -80,24 +84,25 @@ class GUI():
             color += hx
         return color
 
-agent_attributes = ["transaction_prices", "wealth"]
-model_attributes = ["population", "total_agents_created", "total_exchanges", "average_price"]
-
-parent = Tk()
-parent.title = "Sugarscape"
-name = "Sugarscape"
-run = 1
-num_agents = 2000
-periods = 10000
-y = GUI(name, run, num_agents, live_visual = False, plots = True,
-         every_t_frames_GUI = 1, every_t_frames_plots= 100,
-          agent_attributes=agent_attributes, model_attributes=model_attributes)
-y.model.runModel(periods)
-parent.quit()
+agent_attributes = ["water", "sugar", "wealth"]
+model_attributes = ["population", "total_agents_created", "total_exchanges", "total_avg_price", "water_avg_price", "sugar_avg_price",
+                    "num_basicherders", "num_basicsbasics", "num_arbitrageursbasics", "num_arbitrageursherders"]
 
 
-agent_attributes = ["transaction_prices", "wealth"]
-model_attributes = ["population", "total_agents_created", "total_exchanges", "average_price"]
+# parent = Tk()
+# parent.title = "Sugarscape"
+# name = "Sugarscape"
+# run = 1
+# num_agents = 2000
+# periods = 10000
+# y = GUI(name, run, num_agents, live_visual = False, plots = True,
+#          every_t_frames_GUI = 1, every_t_frames_plots= 100,
+#           agent_attributes=agent_attributes, model_attributes=model_attributes)
+# y.model.runModel(periods)
+# parent.quit()
+
+
+
 
 
 data_agg = DataAggregator(agent_attributes, model_attributes)
@@ -115,7 +120,7 @@ for mutate in [True]:
             data_agg.prepRun(name, str(run))
             # parent.title"Sugarscape"
             num_agents = 2000
-            periods = 500
+            periods = 1000
             start = time.time()
             y = GUI(name, run, num_agents, live_visual = False, plots=False, mutate = mutate, genetic = genetic,
                     agent_attributes = agent_attributes, 

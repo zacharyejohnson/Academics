@@ -3,28 +3,52 @@ from Agent import Agent
 import random
 
 class ArbitrageurHerder(Arbitrageur): 
-    def __init__(self, model, row, col, ID, hasParent, **kwargs):
-        super().__init__(model, row, col, ID, hasParent, **kwargs)
+    def __init__(self, model, row, col, ID, parent):
+        super().__init__(model, row, col, ID, parent)
         self.outline_width = 2
         self.wealthiest = self
+        self.herder = True
+        self.arbitraguer = True
 
-    def trade(self): 
-        super().trade()
-        def herd_traits(partner): 
-            if self.model.genetic:
-                    for attr, val in partner.copy_attributes.items():
-                        if random.random() < self.model.cross_over_rate:
-                            setattr(self, attr, val)
-            else: 
-                    for attr, val in partner.copy_attributes.items():
-                        setattr(self, attr, val)
+    def select_breed_parameters(self, mutate, parent, herding=False, partner=None):
+        def generate_breed_parameters(): 
+            inheritance = parent.define_inheritance() if parent is not None else None
+            #arbitrageur attributes
+            min_denominator = 10 if not mutate or "present_price_weight" not in inheritance else\
+                int(inheritance["present_price_weight"] / (1 + self.mutate_rate))
+            max_denominator = 100 if not mutate  or "present_price_weight" not in inheritance else\
+                int(inheritance["present_price_weight"] * (1 + self.mutate_rate))
+            self.present_price_weight = random.randint(
+                min_denominator, max_denominator)
+            self.expected_price = self.reservation_demand["sugar"]["price"]
+            inheritance = parent.define_inheritance() if parent is not None else None
 
-        if self.partner is not None: 
-            if self.top_wealth < self.partner.wealth: 
-                herd_traits(self.partner)
-                self.top_wealth = self.partner.wealth
+            #herder attributes
+            self.wealthiest = parent if inheritance is not None else self
+            self.top_wealth = parent.get_wealth() if inheritance is not None else self.get_wealth()
+
+        def copy_partner_parameters(): 
+            if not hasattr(self, "top_wealth"):
+                self.top_wealth = partner.get_wealth()
+                self.wealthiest = partner
+            if not hasattr(self, "expected_price"):                        
+                        self.expected_price = partner.expected_price
+            if not hasattr(self, "present_price_weight"):                    
+                        self.present_price_weight = partner.present_price_weight 
+
+        if herding: 
+             copy_partner_parameters()
+        else: 
+             generate_breed_parameters()
+
+    def decrease_count(self): 
+        self.model.num_arbitrageursherders -= 1
+                
 
     def update_params(self):
         super().update_params()
+
+        if self.get_wealth() != self.top_wealth: 
+            self.wealthiest = self
         if self.wealthiest != self: 
-            self.top_wealth *= .99
+             self.top_wealth *= .999

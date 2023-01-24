@@ -199,8 +199,9 @@ class DataAggregator():
                                   index= dict_of_chests.keys()).T
                 df.index = df.index.astype(int)
                 df = df.sort_index()
+                print(df)
                 # build_distribution_video(df, attr)
-                if attr != "average_price":
+                if not (attr.endswith("price")):
                     df["mean"] = df.mean(axis=1)
                 else:
                     df["mean"] = [gmean(df.loc[row].dropna()) for row in df.index]
