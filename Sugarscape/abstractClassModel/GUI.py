@@ -89,17 +89,17 @@ model_attributes = ["population", "total_agents_created", "total_exchanges", "to
                     "num_basicherders", "num_basicsbasics", "num_arbitrageursbasics", "num_arbitrageursherders"]
 
 
-# parent = Tk()
-# parent.title = "Sugarscape"
-# name = "Sugarscape"
-# run = 1
-# num_agents = 2000
-# periods = 10000
-# y = GUI(name, run, num_agents, live_visual = False, plots = True,
-#          every_t_frames_GUI = 1, every_t_frames_plots= 100,
-#           agent_attributes=agent_attributes, model_attributes=model_attributes)
-# y.model.runModel(periods)
-# parent.quit()
+parent = Tk()
+parent.title = "Sugarscape"
+name = "Sugarscape"
+run = 1
+num_agents = 2000
+periods = 1000
+y = GUI(name, run, num_agents, live_visual = False, plots = True,
+         every_t_frames_GUI = 1, every_t_frames_plots= 100,
+          agent_attributes=agent_attributes, model_attributes=model_attributes)
+y.model.runModel(periods)
+parent.quit()
 
 
 

@@ -262,11 +262,25 @@ class Model():
             if can_reproduce: 
 
                 def child_breed(): 
-                    primary_breed = random.choices(list(self.primary_breeds_probabilities.keys()), 
-                                            weights=list(self.primary_breeds_probabilities.values()), k=1)[0]
-                    secondary_breed = random.choices(list(self.secondary_breeds_probabilities.keys()), 
-                                            weights=list(self.secondary_breeds_probabilities.values()), k=1)[0]
-                    return primary_breed, secondary_breed
+                    # mutation means that agent switches breed 
+                    def primary_breed(): 
+                        if random.random() < agent.mutate_rate: 
+                            breed = "basic" if agent.arbitrageur else "arbitrageur"
+                        else: 
+                            breed = "arbitrageur" if agent.arbitrageur else "basic"
+
+                        return breed
+
+                            
+                    def secondary_breed():
+                        if random.random() < agent.mutate_rate: 
+                            breed = "basic" if agent.herder else "herder"
+                        else: 
+                            breed = "herder" if agent.herder else "basic"
+
+                        return breed
+
+                    return primary_breed(), secondary_breed()
 
                 child_breed = child_breed()
 
