@@ -98,11 +98,11 @@ class GUI():
             color += hx
         return color
 
-agent_attributes = ["water", "sugar", "wealth", "basic",
-                        "herder", "arbitrageur"]
-model_attributes = ["population", "total_avg_price", "water_avg_price", "sugar_avg_price"] 
+agent_attributes = []#"water", "sugar", "wealth", "basic",
+                     #   "herder", "arbitrageur"]
+model_attributes = ["population", "total_avg_price", "water_avg_price", "sugar_avg_price", 
                     #   "num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
-                    #           "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
+                               "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
 
 
 parent = Tk()
@@ -110,7 +110,7 @@ parent.title = "Sugarscape"
 name = "Sugarscape"
 run = 1
 num_agents = 2000
-periods = 10000
+periods = 100000
 y = GUI(name, run, num_agents, live_visual = False, plots = True,
          every_t_frames_GUI = 5, every_t_frames_plots= 100,
           agent_attributes=agent_attributes, model_attributes=model_attributes)

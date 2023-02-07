@@ -78,8 +78,10 @@ class Model():
         self.initializePatches()
         self.initializeAgents()
         self.data_dict = shelve.open("shelves\\masterShelve", writeback = True)
+        self.plots_dict = {}
         for attribute in self.attributes:
             self.data_dict[attribute] = shelve.open("shelves\\subshelve-"+attribute, writeback = True) 
+            self.plots_dict[attribute] = []
 
         self.transaction_prices = {good: [] for good in self.goods}
         self.all_prices = [1]
@@ -123,7 +125,7 @@ class Model():
         return row, col
     
 
-    def simulate_interactions(self): 
+    def simulate_interactions(self, period): 
         start = time.time()
         agent_list = list(self.agent_dict.values())
         random.shuffle(agent_list)
@@ -161,10 +163,6 @@ class Model():
                         ah_res_demand.append(agent.reservation_demand["sugar"]["price"])
                         #print(agent, ah_res_demand)
         if self.model_attributes != [] and self.plots:
-            self.population = len(self.agent_dict)
-            self.water_avg_price = gmean(self.transaction_prices['water'])
-            self.sugar_avg_price = gmean(self.transaction_prices['sugar'])
-            self.total_avg_price = gmean(self.all_prices)
             if len(bb_res_demand) > 0:
                 self.bb_res_demand = gmean(bb_res_demand)
             if len(bh_res_demand) > 0:
@@ -174,50 +172,22 @@ class Model():
             if len(ah_res_demand) > 0:
                 self.ah_res_demand = gmean(ah_res_demand)
         end = time.time()
-        diff = end-start
-        print(diff)
-        if self.plots:
-            self.plot_data_dict['runtime'].append(diff)
+        self.runtime = end-start
+        if period % 10 == 0: 
+            print(period, self.runtime)
         # print("population: " + str(len(self.agent_dict)))
 
-    #update plot data
-    def update_plot_data(self, period): 
-        self.plot_data_dict['periods'].append(period)
-        for attr in self.model_attributes: 
-            self.plot_data_dict[attr].append(getattr(self, attr))
-
-    # choose what data to plot 
-    def instatiate_plot_data(self): 
-        if self.model_attributes != []: 
-            self.plot_data_dict = {attr: [] for attr in self.model_attributes}
-        else: 
-            self.plot_data_dict = {}
-        self.plot_data_dict['periods'] = []
-        self.plot_data_dict['runtime'] = []
-        
-
-    def runModel(self, periods):
-        if self.plots: 
-            self.instatiate_plot_data()
-            plt.ion()
-            num_rows = int(np.ceil(np.sqrt(len(self.plot_data_dict)))) + 3
-            num_cols = int(np.ceil(len(self.plot_data_dict) / num_rows)) 
-            self.fig, self.axs = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(20,20))
-
-            
+    def runModel(self, periods):           
         # Update the plot at each period
         for period in range(1, periods + 1):
             # Simulate the agents interacting
             self.growPatches()
-            self.simulate_interactions()
+            self.simulate_interactions(period)
+            setattr(self, "population", len(self.agent_dict))
+            setattr(self, "water_avg_price", gmean(self.transaction_prices['water']))
+            setattr(self, "sugar_avg_price", gmean(self.transaction_prices['sugar']))
+            setattr(self, "total_avg_price", gmean(self.all_prices))
             self.collectData(str(period))
-            print(period)
-
-            # Update the data for the plots
-            if self.plots: 
-                self.update_plot_data(period)
-                if period % self.GUI.every_t_frames_plots == 0:
-                    self.plot_data(blit=True)
 
             if self.live_visual and period % self.GUI.every_t_frames_GUI == 0: 
                 self.GUI.updatePatches()
@@ -233,33 +203,31 @@ class Model():
 
                 
         if self.plots:
-            # Plot the final state of the data without blitting
-            self.plot_data(blit=False)
+            self.plot_data()
 
-    def plot_data(self, blit=False):
-        if blit:
-            # Clear the previous state of the plots
-                self.fig.axes.clear()
+    def plot_data(self):
+
+        num_rows = int((len(self.data_dict) / 2)) + 1
+        num_cols = 2
+        self.fig, self.axs = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(20,30))
+
 
         # Iterate over the data in the dictionary
-        for i, (variable, data) in enumerate(self.plot_data_dict.items()):
+        for i, (variable, data) in enumerate(self.plots_dict.items()):
             # Get the row and column for the current plot
             row = i // 2
             col = i % 2
-
+            print(variable)
             # Plot the data for the current variable
-            self.axs[row, col].plot(self.plot_data_dict['periods'], data)
+            self.axs[row, col].plot(data)
             self.axs[row, col].set_xlabel('Period')
             self.axs[row, col].set_ylabel(variable)
 
-           
-
         # Redraw the plots
         self.fig.canvas.draw()
+        plt.show()
 
-        if blit: 
-            for ax in self.fig.axes: 
-                self.fig.canvas.blit(ax.bbox)
+
 
                     
     # the reproduce funtion is implemented in model class to avoid circular dependencies in agent class 
@@ -351,6 +319,7 @@ class Model():
         def collectModelAttributes():
             for attribute in self.model_attributes:
                 self.data_dict[attribute][period] = getattr(self, attribute)
+                self.plots_dict[attribute].append(getattr(self, attribute))
                 
         #collectAgentAttributes()
         collectModelAttributes()
