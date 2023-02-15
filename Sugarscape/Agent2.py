@@ -475,26 +475,52 @@ class Agent():
             return price, can_trade
         
         def executeTrade(partner, price):
-                
+            
+            # calculate how many trades each agent would make to arrive at their 
+            # reservation demand for the good they are giving away
             self_res_min = self.reservation_demand[self.not_target]["quantity"]
             partner_res_min = self.reservation_demand[self.target]["quantity"]
-            while (getattr(self, self.not_target) > self_res_min > price) and\
-                (getattr(partner, self.target) > partner_res_min > 1):
+            self_excess_demand = getattr(self, self.not_target) - self_res_min
+            partner_excess_demand = getattr(partner, self.target) - partner_res_min
+            self_max_trades = np.floor(self_excess_demand / price)
+            partner_max_trades = np.floor(partner_excess_demand)
+
+            # number of trades is determined by which agent has to stop trading first 
+            num_trades = min(self_max_trades, partner_max_trades)
+           
+            # adjust values of goods for agents based onhow many trades were made 
+            setattr(self, self.not_target, (getattr(self, self.not_target) - (num_trades * price)))
+            setattr(self, self.target, (getattr(self, self.target) + num_trades))
+            setattr(partner, self.target, (getattr(partner, self.target) - num_trades))
+            setattr(partner, self.not_target, (getattr(partner, self.not_target) + (num_trades * price)))
+
+            transaction_price = price if self.target == "sugar" else 1 / price
+            self.model.transaction_prices[self.target].append(price)
+            self.model.transaction_weights[self.target].append(num_trades)
+            self.model.all_prices.append(price)
+            self.model.all_prices_weights.append(num_trades)
+            self.model.total_exchanges += num_trades
+
+
+            # while (getattr(self, self.not_target) > self_res_min > price) and\
+            #     (getattr(partner, self.target) > partner_res_min > 1):
                 
-                setattr(self, self.target, getattr(self, self.target) + 1)
-                setattr(self, self.not_target, getattr(self, self.not_target) - price)
-                setattr(partner,self.target, getattr(partner, self.target) - 1)
-                setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+            #     setattr(self, self.target, getattr(self, self.target) + 1)
+            #     setattr(self, self.not_target, getattr(self, self.not_target) - price)
+            #     setattr(partner,self.target, getattr(partner, self.target) - 1)
+            #     setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
                 
-                # save price of sugar or implied price of sugar for every exchange
-                transaction_price = price if self.target == "sugar" else 1 / price
-                self.model.transaction_prices[self.target].append(transaction_price)
-                self.model.all_prices.append(transaction_price)
-                self.model.total_exchanges += 1
-                # record impact on arbitrageurs expected price of sugar
-                if self.arbitrageur:
-                    self.expected_price = (self.expected_price * (
+            #     # save price of sugar or implied price of sugar for every exchange
+            #     transaction_price = price if self.target == "sugar" else 1 / price
+            #     self.model.transaction_prices[self.target].append(transaction_price)
+            #     self.model.all_prices.append(transaction_price)
+            #     self.model.total_exchanges += 1
+            #     # record impact on arbitrageurs expected price of sugar
+            if self.arbitrageur:
+                    self.expected_price =  (self.expected_price * (
                         self.present_price_weight) + transaction_price) / self.present_price_weight
+                    self.expected_price *= num_trades
+                    
         def herdTraits(agent, partner):
             def turn_off_other_primary_breeds(agent, breed, have_attr):
                 if attr in self.model.primary_breeds:

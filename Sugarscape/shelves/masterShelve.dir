@@ -1,8 +1,0 @@
-'population', (0, 389)
-'total_avg_price', (512, 404)
-'water_avg_price', (1024, 404)
-'sugar_avg_price', (1536, 404)
-'bb_res_demand', (30720, 398)
-'bh_res_demand', (31232, 398)
-'ab_res_demand', (31744, 398)
-'ah_res_demand', (32256, 398)

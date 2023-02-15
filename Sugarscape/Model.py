@@ -14,6 +14,8 @@ from memory_profiler import memory_usage
 from scipy.stats.mstats import gmean
 matplotlib.use('TkAgg',force=True)
 from matplotlib import pyplot as plt
+import cython
+#from DataCollector import DataCollector
 #Model.py
 class Model():
     def __init__(self, gui, num_agents, mutate, genetic, live_visual, plots, agent_attributes,
@@ -77,14 +79,14 @@ class Model():
         self.rows, self.cols = self.sugarMap.shape
         self.initializePatches()
         self.initializeAgents()
-        self.data_dict = shelve.open("shelves\\masterShelve", writeback = True)
-        self.plots_dict = {}
+        self.data_dict = {}#shelve.open("shelves\\masterShelve", writeback = True)
         for attribute in self.attributes:
-            self.data_dict[attribute] = shelve.open("shelves\\subshelve-"+attribute, writeback = True) 
-            self.plots_dict[attribute] = []
+            self.data_dict[attribute] = {}#shelve.open("shelves\\subshelve-"+attribute, writeback = True) 
 
-        self.transaction_prices = {good: [] for good in self.goods}
+        self.transaction_prices = {good: [1] for good in self.goods}
+        self.transaction_weights = {good: [1] for good in self.goods}
         self.all_prices = [1]
+        self.all_prices_weights = [1]
         self.water_avg_price = 1
         self.sugar_avg_price = 1
         self.total_avg_price = 1
@@ -94,6 +96,7 @@ class Model():
         self.bh_res_demand = 1
         self.ab_res_demand = 1
         self.ah_res_demand = 1
+        self.runtime = 0
 
     def initializePatches(self):
         self.patches_dict = {i:{j:0}
@@ -126,10 +129,9 @@ class Model():
     
 
     def simulate_interactions(self, period): 
-        start = time.time()
         agent_list = list(self.agent_dict.values())
         random.shuffle(agent_list)
-        if self.model_attributes != [] and self.plots: 
+        if self.model_attributes != []: # and self.plots: 
             self.num_basicherders = 0
             self.num_arbitrageurherders = 0
             self.num_basicbasics = 0 
@@ -138,6 +140,9 @@ class Model():
             bh_res_demand = []
             ab_res_demand = []
             ah_res_demand = []
+        # temp_dict={}
+        # for attribute in self.agent_attributes:
+        #     temp_dict[attribute] = []
         for agent in agent_list:
                 agent.move()
                 agent.harvest()
@@ -148,7 +153,7 @@ class Model():
                 agent.updateParams()
 
                 #agent statistics tracking 
-                if self.model_attributes != [] and self.plots:
+                if self.model_attributes != []: # and self.plots:
                     if not agent.herder and not agent.arbitrageur: 
                         self.num_basicbasics += 1
                         bb_res_demand.append(agent.reservation_demand["sugar"]["price"])
@@ -161,8 +166,8 @@ class Model():
                     elif agent.herder and agent.arbitrageur: 
                         self.num_arbitrageurherders += 1
                         ah_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                        #print(agent, ah_res_demand)
-        if self.model_attributes != [] and self.plots:
+
+        if self.model_attributes != []: # and self.plots:
             if len(bb_res_demand) > 0:
                 self.bb_res_demand = gmean(bb_res_demand)
             if len(bh_res_demand) > 0:
@@ -170,24 +175,40 @@ class Model():
             if len(ab_res_demand) > 0:
                 self.ab_res_demand = gmean(ab_res_demand)
             if len(ah_res_demand) > 0:
-                self.ah_res_demand = gmean(ah_res_demand)
-        end = time.time()
-        self.runtime = end-start
-        if period % 10 == 0: 
-            print(period, self.runtime)
-        # print("population: " + str(len(self.agent_dict)))
+               self.ah_res_demand = gmean(ah_res_demand)
+        # for attribute, val in temp_dict.items():
+        #         self.data_dict[attribute].__setitem__(str(period), np.mean(val)
 
     def runModel(self, periods):           
         # Update the plot at each period
         for period in range(1, periods + 1):
             # Simulate the agents interacting
+            start = time.time()
             self.growPatches()
             self.simulate_interactions(period)
             setattr(self, "population", len(self.agent_dict))
-            setattr(self, "water_avg_price", gmean(self.transaction_prices['water']))
-            setattr(self, "sugar_avg_price", gmean(self.transaction_prices['sugar']))
-            setattr(self, "total_avg_price", gmean(self.all_prices))
+            if period > 50: 
+                avg_water = gmean(self.transaction_prices['water'], weights=self.transaction_weights['water'])
+                avg_sugar = gmean(self.transaction_prices['sugar'], weights=self.transaction_weights['sugar'])
+                avg_total = gmean(self.all_prices, weights=self.all_prices_weights)
+                if avg_water < 3: 
+                    setattr(self, "water_avg_price", avg_water)
+                else: 
+                    print(avg_water)
+                if avg_sugar < 3:
+                    setattr(self, "sugar_avg_price", avg_sugar)
+                else: 
+                    print(avg_sugar)
+                if avg_total < 3:
+                    setattr(self, "total_avg_price", avg_total)
+                else: 
+                    print(avg_total)
             self.collectData(str(period))
+            end = time.time()
+            self.runtime = end-start
+            if period % 10 == 0: 
+                print(period, self.runtime)
+
 
             if self.live_visual and period % self.GUI.every_t_frames_GUI == 0: 
                 self.GUI.updatePatches()
@@ -196,7 +217,6 @@ class Model():
             if period == periods:
                 mem_usage = memory_usage(-1, interval=1)#, timeout=1)
                 print(period, "end memory usage before sync//collect:", mem_usage[0], sep = "\t")
-                self.data_dict.sync()
                 gc.collect()
                 mem_usage = memory_usage(-1, interval=1)#, timeout=1)
                 print(period, "end memory usage after sync//collect:", mem_usage[0], sep = "\t")
@@ -213,7 +233,7 @@ class Model():
 
 
         # Iterate over the data in the dictionary
-        for i, (variable, data) in enumerate(self.plots_dict.items()):
+        for i, (variable, data) in enumerate(self.data_dict.items()):
             # Get the row and column for the current plot
             row = i // 2
             col = i % 2
@@ -303,6 +323,7 @@ class Model():
                 if patch.Q < patch.maxQ:
                     patch.Q += 1
 
+
     def collectData(self, period):
         
         def collectAgentAttributes():
@@ -319,7 +340,6 @@ class Model():
         def collectModelAttributes():
             for attribute in self.model_attributes:
                 self.data_dict[attribute][period] = getattr(self, attribute)
-                self.plots_dict[attribute].append(getattr(self, attribute))
                 
-        #collectAgentAttributes()
+        collectAgentAttributes()
         collectModelAttributes()

@@ -8,10 +8,12 @@ import shelve
 import os
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats.mstats import gmean
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 class DataAggregator():
     def __init__(self, agent_attributes, model_attributes):
-        self.folder = "shelves"
+        self.folder = "parquet"
         self.agent_attributes = agent_attributes
         self.model_attributes = model_attributes
         self.attributes = agent_attributes + model_attributes
@@ -23,17 +25,21 @@ class DataAggregator():
             # remove all files to avoid error
             files = os.listdir(self.folder)
             for file in files:
-                os.remove(self.folder + "\\" + file)
+                os.remove(self.folder)
         self.trial_data = {}#shelve.open(self.folder + "\\dataAgMaster")
             
-    def prepSetting(self, name):
-        self.trial_data[name] = shelve.open(self.folder + "\\dataAg" + name.replace(":", "-"), writeback = True)#(path = self.folder)
-    
+    def prepSetting(self):
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+
     def prepRun(self, name, run):
-        self.trial_data[name][run] = {}#shelve.open(self.folder + "\\" + name.replace(":", "-") + run)
-        for attribute in self.attributes:
-            self.trial_data[name][run][attribute] ={}# shelve.open(
-                # self.folder + "\\" + name.replace(":", "-") + run + attribute) 
+        self.run_data = {}
+        run_folder = self.folder + "\\" + str(run)
+        # if not os.path.exists(run_folder):
+        #     os.makedirs(run_folder)
+            
+            
+            
     def collectData(self, model, name, run, period):
         
         def collectAgentAttributes():
@@ -56,22 +62,23 @@ class DataAggregator():
     
     
     def saveRun(self, name, run, run_data):
-        for attribute in run_data.keys():
-            for period, val in run_data[attribute].items():
-                self.trial_data[name][run][attribute][period] = val
-        self.trial_data[name].sync()
             
-            # print(dict(self.trial_data[name][run][attribute]))
-        # print(pd.read_pickle(self.trial_data[name]))
-            # print(pd.concat([pd.DataFrame(dict(pair for pair self.trial_data[name][run][attributes].items()), columns = attribute) ], axis = 1 ))
-            # print(pd.DataFrame(
-                # print(dict(pair for pair in self.trial_data[name][run][attribute].items())), 
-                # columns = attribute))
+           # for attr in self.attributes: 
+                df = pd.DataFrame.from_dict(run_data)
+                print(df.keys())
+                table = pa.Table.from_pandas(df)
+                for attr in df.keys(): 
+                   # table = pa.Table.from_pandas(df[attr])
+                    file_name = os.getcwd() + "\\" + self.folder + "\\" +  attr + "\\" + str(run) + ".parquet"
+                    if not os.path.exists(os.getcwd() + "\\" + self.folder + "\\" + attr + "\\" + str(run)): 
+                        os.makedirs(os.getcwd() + "\\" + self.folder + "\\" + attr + "\\" + str(run))
+                    pq.write_table(table.select([attr]), file_name)
+
     def saveData(self, name, trial):
-        dict_of_chests = self.trial_data[name][trial]
-        # pd.DataFrame(data = dict_of_chests.values(), 
-        #               index = dict_of_chests.keys()).T.to_csv(
-        #                   name.replace(":", " ") + str(trial) + ".csv")
+            dict_of_chests = self.trial_data[name][trial]
+            # pd.DataFrame(data = dict_of_chests.values(), 
+            #               index = dict_of_chests.keys()).T.to_csv(
+            #                   name.replace(":", " ") + str(trial) + ".csv")
     
     def saveDistributionByPeriod(self, name):
 
@@ -83,7 +90,22 @@ class DataAggregator():
                 # for period in self.trial_data[name][trial]:
                 self.distribution_dict[name][attr][trial] = self.trial_data[name][trial][attr]
 
-    def plotDistributionByPeriod(self, name):
+    def saveDistributionByPeriodWithParquet(self, name, runs):
+            
+            #self.distribution_dict = {attr: {run:{} for run in runs}
+             #                           for attr in self.attributes}
+            
+            for attr in self.attributes: 
+                for run in range(runs): 
+                    filepath = self.folder + "\\" + attr + "\\" + str(run) + ".parquet"
+                    df = pd.read_parquet(filepath)
+                    print(df.keys())
+                    #self.distribution_dict[attr][run] += df[attr].tolist()
+
+        
+           
+
+    def plotDistributionByPeriod(self, name, runs):
 
         def build_distribution_video(df, attr):
             def plot_curves(frame, *kwargs):
@@ -174,48 +196,61 @@ class DataAggregator():
             plt.close()
         plt.rcParams.update({"font.size": 30})
         pp = None# PdfPages("Sugarscape Plots.pdf")
+
+        def create_attr_df_from_parquet(attr, runs): 
+                attr_df = pd.DataFrame()
+
+                # fetch parquet files of each run, put into single dataframe 
+                for run in range(runs): 
+                    filepath = self.folder + "\\" + attr + "\\" + str(run) + ".parquet"
+                    run_df = pd.read_parquet(filepath)
+                    attr_df[run] = run_df
+
+                # add column to hold mean value from all runs
+                if not (attr.endswith("price")):
+                    attr_df["mean"] = attr_df.mean(axis=1)
+                else:
+                    attr_df["mean"] = [gmean(attr_df.loc[row].dropna()) for row in attr_df.index]
+
+                return attr_df
         
-        gen_dict = self.distribution_dict[name]["total_agents_created"]
-        gen_df = pd.DataFrame(data = gen_dict.values(), 
-                          index= gen_dict.keys()).T
+        gen_df = create_attr_df_from_parquet("total_agents_created", runs)
+        # gen_df = pd.DataFrame(data = gen_dict, 
+        #                   index= range(len(gen_dict))).T
         gen_df.index = gen_df.index.astype(int)
         gen_df = gen_df.sort_index()
         gen_df.index.name = "Number of Generations"
-        gen_df["mean"] = gen_df.mean(axis = 1)
         
-        exchange_dict = self.distribution_dict[name]["total_exchanges"]
-        exchange_df = pd.DataFrame(data = exchange_dict.values(), 
-                          index= exchange_dict.keys()).T
+       # exchange_dict = self.distribution_dict["total_exchanges"]
+        exchange_df = create_attr_df_from_parquet("total_exchanges", runs)
         exchange_df.index = exchange_df.index.astype(int)
         exchange_df = exchange_df.sort_index()
         exchange_df.index.name = "Cumulative Exchanges"
-        exchange_df["mean"] = exchange_df.mean(axis = 1)
+       # exchange_df["mean"] = exchange_df.mean(axis = 1)
         
-        for name in self.distribution_dict:
-            for attr in self.distribution_dict[name]:
-                for trial in self.distribution_dict[name][attr]:
-                    dict_of_chests = self.distribution_dict[name][attr]
-                df = pd.DataFrame(data = dict_of_chests.values(), 
-                                  index= dict_of_chests.keys()).T
-                df.index = df.index.astype(int)
-                df = df.sort_index()
-                print(df)
+        for attr in self.attributes:
+                attr_df = create_attr_df_from_parquet(attr, runs)
+
+
+
+                # dict_of_chests = self.distribution_dict[attr]
+                # df = pd.DataFrame.from_dict(dict_of_chests).T
+                attr_df.index = attr_df.index.astype(int)
+                attr_df = attr_df.sort_index()
+                print(attr_df)
                 # build_distribution_video(df, attr)
-                if not (attr.endswith("price")):
-                    df["mean"] = df.mean(axis=1)
-                else:
-                    df["mean"] = [gmean(df.loc[row].dropna()) for row in df.index]
                 
-                df["generations mean"] = gen_df["mean"]
-                df["exchanges mean"] = exchange_df["mean"]
-                build_line_plots_with_scatter(df, attr, pp = pp)
-                build_line_plots_with_scatter(df, attr, pp = pp, alt_x_axis = "generations mean")
-                build_line_plots_with_scatter(df, attr, pp = pp, alt_x_axis = "exchanges mean")                
+                attr_df["generations mean"] = gen_df["mean"]
+                attr_df["exchanges mean"] = exchange_df["mean"]
+                build_line_plots_with_scatter(attr_df, attr, pp = pp)
+                build_line_plots_with_scatter(attr_df, attr, pp = pp, alt_x_axis = "generations mean")
+                build_line_plots_with_scatter(attr_df, attr, pp = pp, alt_x_axis = "exchanges mean")                
                 # else:
                 #     df["mean"] = np.nan
                 #     for row in df.index
                 #     df.loc[row]["mean"] = gmean(df.drop("mean").loc["row"])
                     
+
                     
         if pp != None: pp.close()
     def remove_shelves(self):
@@ -228,3 +263,17 @@ class DataAggregator():
         process_files(path)
         path = "."
         process_files(path)
+
+    def remove_parquet(self):
+        def process_files(path):
+            files = os.listdir(path)
+            for file in files:
+                
+                    if ".parquet" in file :
+                        os.remove(path + "\\" + file)
+        path = self.folder
+        process_files(path)
+        path = "."
+        process_files(path)
+
+    

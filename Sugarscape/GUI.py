@@ -99,38 +99,38 @@ class GUI():
         return color
 
 agent_attributes = []#"water", "sugar", "wealth", "basic",
-                     #   "herder", "arbitrageur"]
-model_attributes = ["population", "total_avg_price", "water_avg_price", "sugar_avg_price", 
-                    #   "num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
+                      #  "herder", "arbitrageur"]
+model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime", "water_avg_price", "sugar_avg_price",
+                      #"num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
                                "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
 
 
-parent = Tk()
-parent.title = "Sugarscape"
-name = "Sugarscape"
-run = 1
-num_agents = 2000
-periods = 100000
-y = GUI(name, run, num_agents, live_visual = False, plots = True,
-         every_t_frames_GUI = 5, every_t_frames_plots= 100,
-          agent_attributes=agent_attributes, model_attributes=model_attributes)
-y.model.runModel(periods)
-parent.quit()
+# parent = Tk()
+# parent.title = "Sugarscape"
+# name = "Sugarscape"
+# run = 1
+# num_agents = 2000
+# periods = 1000
+# y = GUI(name, run, num_agents, live_visual = False, plots = True,
+#          every_t_frames_GUI = 5, every_t_frames_plots= 100,
+#           agent_attributes=agent_attributes, model_attributes=model_attributes)
+# y.model.runModel(periods)
+# parent.quit()
 
 
 
 
-
+runs = 5
 data_agg = DataAggregator(agent_attributes, model_attributes)
 for mutate in [True]:
     for genetic in [True]:#(True, False):
-        name = "mutate: " + str(mutate) + " genetic: " + str(genetic)
-        data_agg.prepSetting(name)
+        name = "sugarscape" 
+        data_agg.prepSetting()
         print("mutate", "genetic", sep = "\t")
         print(mutate, genetic, sep = "\t")
         print("trial", "agents", "periods", "time", sep = "\t")
         gc.set_threshold(0)
-        for run in range(20):
+        for run in range(runs):
             mem_usage = memory_usage(-1, interval=1)#, timeout=1)
             print(run, "mem:", str(int(mem_usage[0]))  + " MB", sep = "\t")
             data_agg.prepRun(name, str(run))
@@ -138,14 +138,14 @@ for mutate in [True]:
             num_agents = 2000
             periods = 10000
             start = time.time()
-            y = GUI(name, run, num_agents, live_visual = False, plots=False, mutate = mutate, genetic = genetic,
+            y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False, mutate = mutate, genetic = genetic,
                     agent_attributes = agent_attributes, 
                     model_attributes = model_attributes)
             y.model.runModel(periods)
             # print(dict(y.model.data_dict))
             data_agg.saveRun(name, str(run), y.model.data_dict)
             # run_data = copy.copy(y.model.data_dict)
-            y.model.data_dict.close()
+            del y.model.data_dict
             # final_num_agents = len(y.model.agent_dict)
             if y.live_visual:
                 y.parent.quit()
@@ -156,9 +156,10 @@ for mutate in [True]:
 
             # gc.collect()
             # del run_data
-        data_agg.saveDistributionByPeriod(name)
-        data_agg.plotDistributionByPeriod(name)
+        data_agg.saveDistributionByPeriodWithParquet(name, runs)
+        data_agg.plotDistributionByPeriod(name, runs)
         data_agg.remove_shelves()
+        data_agg.remove_parquet()
 
 
 # if __name__ == "__main__":
