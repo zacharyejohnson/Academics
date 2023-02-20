@@ -271,23 +271,23 @@ class Agent():
                     self.top_wealth *= .999
             # let exchange target be determined by reservation demand
             # if shortage of both goods, choose randomly
-            good1 = random.choice(self.model.goods)
-            good2 = "water" if good1 == "sugar" else "sugar"
-            if self.basic:
-                if getattr(self,good1) < self.reservation_demand[good1]["quantity"]\
-                    and getattr(self,good2) < self.reservation_demand[good2]["quantity"]:
-                    self.target, self.not_target = good1, good2
+            # good1 = random.choice(self.model.goods)
+            # good2 = "water" if good1 == "sugar" else "sugar"
+            # if self.basic:
+            #     if getattr(self,good1) < self.reservation_demand[good1]["quantity"]\
+            #         and getattr(self,good2) < self.reservation_demand[good2]["quantity"]:
+            #         self.target, self.not_target = good1, good2
                 
-                    # in case to level of wealth falls, as it does one population 
-                    # grows, allow top_wealth to decay
-                elif getattr(self,good1) < self.reservation_demand[good1]["quantity"]\
-                    and getattr(self,good2) > self.reservation_demand[good2]["quantity"]:
-                    self.target, self.not_target = good1, good2
-                elif getattr(self,good2) < self.reservation_demand[good2]["quantity"]\
-                    and getattr(self,good1) > self.reservation_demand[good1]["quantity"]:
-                    self.target, self.not_target = good2, good1                
+            #         # in case to level of wealth falls, as it does one population 
+            #         # grows, allow top_wealth to decay
+            #     elif getattr(self,good1) < self.reservation_demand[good1]["quantity"]\
+            #         and getattr(self,good2) > self.reservation_demand[good2]["quantity"]:
+            #         self.target, self.not_target = good1, good2
+            #     elif getattr(self,good2) < self.reservation_demand[good2]["quantity"]\
+            #         and getattr(self,good1) > self.reservation_demand[good1]["quantity"]:
+            #         self.target, self.not_target = good2, good1                
              
-            elif self.arbitrageur:
+            if self.arbitrageur:
                 # arbitrageur exchanges for the good that is cheaper than his WTP
                 WTP = self.reservation_demand["sugar"]["price"]
                 if self.expected_price > WTP:
@@ -487,39 +487,40 @@ class Agent():
 
             # number of trades is determined by which agent has to stop trading first 
             num_trades = min(self_max_trades, partner_max_trades)
+            if num_trades > 1 and self_excess_demand > price and partner_excess_demand > 1: 
+                
            
-            # adjust values of goods for agents based onhow many trades were made 
-            setattr(self, self.not_target, (getattr(self, self.not_target) - (num_trades * price)))
-            setattr(self, self.target, (getattr(self, self.target) + num_trades))
-            setattr(partner, self.target, (getattr(partner, self.target) - num_trades))
-            setattr(partner, self.not_target, (getattr(partner, self.not_target) + (num_trades * price)))
+                # adjust values of goods for agents based on how many trades were made 
+                setattr(self, self.not_target, (getattr(self, self.not_target) - (num_trades * price)))
+                setattr(self, self.target, (getattr(self, self.target) + num_trades))
+                setattr(partner, self.target, (getattr(partner, self.target) - num_trades))
+                setattr(partner, self.not_target, (getattr(partner, self.not_target) + (num_trades * price)))
 
-            transaction_price = price if self.target == "sugar" else 1 / price
-            self.model.transaction_prices[self.target].append(price)
-            self.model.transaction_weights[self.target].append(num_trades)
-            self.model.all_prices.append(price)
-            self.model.all_prices_weights.append(num_trades)
-            self.model.total_exchanges += num_trades
+                transaction_price = price if self.target == "sugar" else 1 / price
+                self.model.transaction_prices[self.target].append(transaction_price)
+                self.model.transaction_weights[self.target].append(num_trades)
+                self.model.all_prices.append(transaction_price)
+                self.model.all_prices_weights.append(num_trades)
+                self.model.total_exchanges += num_trades
 
 
-            # while (getattr(self, self.not_target) > self_res_min > price) and\
-            #     (getattr(partner, self.target) > partner_res_min > 1):
-                
-            #     setattr(self, self.target, getattr(self, self.target) + 1)
-            #     setattr(self, self.not_target, getattr(self, self.not_target) - price)
-            #     setattr(partner,self.target, getattr(partner, self.target) - 1)
-            #     setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
-                
-            #     # save price of sugar or implied price of sugar for every exchange
-            #     transaction_price = price if self.target == "sugar" else 1 / price
-            #     self.model.transaction_prices[self.target].append(transaction_price)
-            #     self.model.all_prices.append(transaction_price)
-            #     self.model.total_exchanges += 1
-            #     # record impact on arbitrageurs expected price of sugar
-            if self.arbitrageur:
-                    self.expected_price =  (self.expected_price * (
-                        self.present_price_weight) + transaction_price) / self.present_price_weight
-                    self.expected_price *= num_trades
+                # while (getattr(self, self.not_target) > self_res_min > price) and\
+                #     (getattr(partner, self.target) > partner_res_min > 1):
+                    
+                #     setattr(self, self.target, getattr(self, self.target) + 1)
+                #     setattr(self, self.not_target, getattr(self, self.not_target) - price)
+                #     setattr(partner,self.target, getattr(partner, self.target) - 1)
+                #     setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+                    
+                #     # save price of sugar or implied price of sugar for every exchange
+                #     transaction_price = price if self.target == "sugar" else 1 / price
+                #     self.model.transaction_prices[self.target].append(transaction_price)
+                #     self.model.all_prices.append(transaction_price)
+                #     self.model.total_exchanges += 1
+                #     # record impact on arbitrageurs expected price of sugar
+                if self.arbitrageur:
+                        self.expected_price =  (self.expected_price * (
+                            self.present_price_weight) + num_trades * transaction_price) / (self.present_price_weight + num_trades)
                     
         def herdTraits(agent, partner):
             def turn_off_other_primary_breeds(agent, breed, have_attr):

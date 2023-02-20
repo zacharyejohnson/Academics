@@ -100,9 +100,9 @@ class GUI():
 
 agent_attributes = []#"water", "sugar", "wealth", "basic",
                       #  "herder", "arbitrageur"]
-model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime", "water_avg_price", "sugar_avg_price",
+model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime", "water_avg_price", "sugar_avg_price"]#,
                       #"num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
-                               "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
+                               #"bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
 
 
 # parent = Tk()
@@ -120,7 +120,7 @@ model_attributes = ["population", "total_exchanges", "total_agents_created", "to
 
 
 
-runs = 5
+runs = 10
 data_agg = DataAggregator(agent_attributes, model_attributes)
 for mutate in [True]:
     for genetic in [True]:#(True, False):
@@ -136,7 +136,7 @@ for mutate in [True]:
             data_agg.prepRun(name, str(run))
             # parent.title"Sugarscape"
             num_agents = 2000
-            periods = 10000
+            periods = 30000
             start = time.time()
             y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False, mutate = mutate, genetic = genetic,
                     agent_attributes = agent_attributes, 

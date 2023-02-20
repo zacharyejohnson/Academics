@@ -228,8 +228,11 @@ class DataAggregator():
         exchange_df.index.name = "Cumulative Exchanges"
        # exchange_df["mean"] = exchange_df.mean(axis = 1)
         
+        attr_dfs = {}
         for attr in self.attributes:
                 attr_df = create_attr_df_from_parquet(attr, runs)
+                path = self.folder + "\\" + attr + "_df"
+                #pq.write_table(attr_df, path)
 
 
 
