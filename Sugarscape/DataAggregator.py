@@ -10,6 +10,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats.mstats import gmean
 import pyarrow as pa
 import pyarrow.parquet as pq
+import shutil
 
 class DataAggregator():
     def __init__(self, agent_attributes, model_attributes):
@@ -23,10 +24,14 @@ class DataAggregator():
         except:
             # if folder is not empty, 
             # remove all files to avoid error
-            files = os.listdir(self.folder)
-            for file in files:
-                os.remove(self.folder)
-        self.trial_data = {}#shelve.open(self.folder + "\\dataAgMaster")
+            shutil.rmtree(self.folder)
+        #     subfolders = os.listdir(self.folder)
+        #     for subfolder in subfolders:
+        #         path = self.folder + "/" + subfolder
+        #         files = os.listdir(path)
+        #         for file in files: 
+        #             os.remove(path + "/" + file)
+        # self.trial_data = {}#shelve.open(self.folder + "\\dataAgMaster")
             
     def prepSetting(self):
         if not os.path.exists(self.folder):

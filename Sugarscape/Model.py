@@ -9,7 +9,7 @@ from Patch import *
 import numpy as np 
 import matplotlib
 import gc
-from Agent2 import Agent
+from Agent import Agent
 from memory_profiler import memory_usage
 from scipy.stats.mstats import gmean
 matplotlib.use('TkAgg',force=True)
@@ -131,18 +131,19 @@ class Model():
     def simulate_interactions(self, period): 
         agent_list = list(self.agent_dict.values())
         random.shuffle(agent_list)
-        # if self.model_attributes != []: # and self.plots: 
-        #     self.num_basicherders = 0
-        #     self.num_arbitrageurherders = 0
-        #     self.num_basicbasics = 0 
-        #     self.num_arbitrageurbasics = 0
-        #     bb_res_demand = []
-        #     bh_res_demand = []
-        #     ab_res_demand = []
-        #     ah_res_demand = []
+        if self.model_attributes != []: # and self.plots: 
+            self.num_basicherders = 0
+            self.num_arbitrageurherders = 0
+            self.num_basicbasics = 0 
+            self.num_arbitrageurbasics = 0
+            bb_res_demand = []
+            bh_res_demand = []
+            ab_res_demand = []
+            ah_res_demand = []
         # temp_dict={}
         # for attribute in self.agent_attributes:
         #     temp_dict[attribute] = []
+        #agent_wealth = 0
         for agent in agent_list:
                 agent.move()
                 agent.harvest()
@@ -151,31 +152,34 @@ class Model():
                 agent.check_alive()
                 agent.reproduce()
                 agent.updateParams()
+                #agent_wealth += agent.wealth()
+
+        
 
                 # #agent statistics tracking 
-                # if self.model_attributes != []: # and self.plots:
-                #     if not agent.herder and not agent.arbitrageur: 
-                #         self.num_basicbasics += 1
-                #         bb_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                #     elif agent.herder and not agent.arbitrageur: 
-                #         self.num_basicherders += 1
-                #         bh_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                #     elif not agent.herder and agent.arbitrageur: 
-                #         self.num_arbitrageurbasics += 1
-                #         ab_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                #     elif agent.herder and agent.arbitrageur: 
-                #         self.num_arbitrageurherders += 1
-                #         ah_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                if self.model_attributes != []: # and self.plots:
+                    if not agent.herder and not agent.arbitrageur: 
+                        self.num_basicbasics += 1
+                        bb_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                    elif agent.herder and not agent.arbitrageur: 
+                        self.num_basicherders += 1
+                        bh_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                    elif not agent.herder and agent.arbitrageur: 
+                        self.num_arbitrageurbasics += 1
+                        ab_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                    elif agent.herder and agent.arbitrageur: 
+                        self.num_arbitrageurherders += 1
+                        ah_res_demand.append(agent.reservation_demand["sugar"]["price"])
 
-        # if self.model_attributes != []: # and self.plots:
-        #     if len(bb_res_demand) > 0:
-        #         self.bb_res_demand = gmean(bb_res_demand)
-        #     if len(bh_res_demand) > 0:
-        #         self.bh_res_demand = gmean(bh_res_demand)
-        #     if len(ab_res_demand) > 0:
-        #         self.ab_res_demand = gmean(ab_res_demand)
-        #     if len(ah_res_demand) > 0:
-        #        self.ah_res_demand = gmean(ah_res_demand)
+        if self.model_attributes != []: # and self.plots:
+            if len(bb_res_demand) > 0:
+                self.bb_res_demand = gmean(bb_res_demand)
+            if len(bh_res_demand) > 0:
+                self.bh_res_demand = gmean(bh_res_demand)
+            if len(ab_res_demand) > 0:
+                self.ab_res_demand = gmean(ab_res_demand)
+            if len(ah_res_demand) > 0:
+               self.ah_res_demand = gmean(ah_res_demand)
         # for attribute, val in temp_dict.items():
         #         self.data_dict[attribute].__setitem__(str(period), np.mean(val)
 
@@ -187,6 +191,7 @@ class Model():
             self.growPatches()
             self.simulate_interactions(period)
             setattr(self, "population", len(self.agent_dict))
+
             if period > 1: 
                 avg_water = gmean(self.transaction_prices['water'], weights=self.transaction_weights['water'])
                 avg_sugar = gmean(self.transaction_prices['sugar'], weights=self.transaction_weights['sugar'])

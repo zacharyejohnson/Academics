@@ -263,7 +263,7 @@ class Agent():
     
     def updateParams(self):
         def setTargetGood():
-            self.wealth = sum((getattr(self,good) / self.model.consumption_rate[good] for good in self.model.goods))
+            self.wealth = sum((getattr(self,good) / self.model.consumption_rate[good] for good in self.model.goods)) / len(self.model.goods)
             if self.herder:
                 if self.wealth > self.top_wealth:
                     self.wealthiest = self
