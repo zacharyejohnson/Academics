@@ -143,7 +143,7 @@ class Model():
         # temp_dict={}
         # for attribute in self.agent_attributes:
         #     temp_dict[attribute] = []
-        #agent_wealth = 0
+        self.agent_wealth = 0
         for agent in agent_list:
                 agent.move()
                 agent.harvest()
@@ -152,7 +152,7 @@ class Model():
                 agent.check_alive()
                 agent.reproduce()
                 agent.updateParams()
-                #agent_wealth += agent.wealth()
+                self.agent_wealth += agent.wealth
 
         
 
@@ -187,10 +187,11 @@ class Model():
         # Update the plot at each period
         for period in range(1, periods + 1):
             # Simulate the agents interacting
-            start = time.time()
+            start1 = time.time()
             self.growPatches()
             self.simulate_interactions(period)
             setattr(self, "population", len(self.agent_dict))
+            setattr(self, "tech_eff_capital", self.agent_wealth / self.population)
 
             if period > 1: 
                 avg_water = gmean(self.transaction_prices['water'], weights=self.transaction_weights['water'])
@@ -209,8 +210,8 @@ class Model():
                 else: 
                     print(avg_total)
             self.collectData(str(period))
-            end = time.time()
-            self.runtime = end-start
+            end1 = time.time()
+            self.runtime = end1-start1
             if period % 10 == 0: 
                 print(period, self.runtime)
 

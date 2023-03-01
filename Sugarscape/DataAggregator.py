@@ -217,6 +217,8 @@ class DataAggregator():
                 else:
                     attr_df["mean"] = [gmean(attr_df.loc[row].dropna()) for row in attr_df.index]
 
+                attr_df = attr_df.astype(np.float32)
+
                 return attr_df
         
         gen_df = create_attr_df_from_parquet("total_agents_created", runs)
@@ -236,16 +238,16 @@ class DataAggregator():
         attr_dfs = {}
         for attr in self.attributes:
                 attr_df = create_attr_df_from_parquet(attr, runs)
-                path = self.folder + "\\" + attr + "_df"
-                #pq.write_table(attr_df, path)
-
-
+                path = self.folder + "\\" + attr + "\\" + attr + "_df"
 
                 # dict_of_chests = self.distribution_dict[attr]
                 # df = pd.DataFrame.from_dict(dict_of_chests).T
                 attr_df.index = attr_df.index.astype(int)
                 attr_df = attr_df.sort_index()
+                
                 print(attr_df)
+                pq_table = pa.Table.from_pandas(attr_df)
+                pq.write_table(pq_table, path)
                 # build_distribution_video(df, attr)
                 
                 attr_df["generations mean"] = gen_df["mean"]
