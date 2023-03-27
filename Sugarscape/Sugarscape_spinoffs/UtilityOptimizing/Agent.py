@@ -1,3 +1,15 @@
+
+##############################################################################
+#### THIS SUGARSCAPE AGENT IMPLEMENTS UTILITY-OPTIMIZING HEURISTIC SEARCH ####
+##############################################################################
+# 3 CLASSES OF AGENT TO BE TESTED: 
+#       1. BASE AGENT: HILL-CLIMBING - MOVES TO PATCH WITH HIGHEST GOOD VALUE 
+#       2. UTILITY OPTIMIZER - MOVES TO PATCH WHICH MAXIMIZES UTILITY FUNCTION DRAWN FROM RANDOM DISTRIBUTION
+#       3. UTIITY OPTIMIZER WITH GENETIC INHERITANCE - INHERITS UTILITY FUNTION FROM PARENT WITH PREDETERMINED PROBABILITY AND MUTATION RATE
+
+
+
+
 import copy
 import random
 import numpy as np
@@ -62,10 +74,6 @@ class Agent():
                     good :min_reproduction_criteria[good] +random.random() * (
                         max_reproduction_criteria[good] - min_reproduction_criteria[good])
                     for good in self.model.goods} 
-                for good in self.model.goods: 
-                    if self.reproduction_criteria[good] < self.model.goods_params[good]["max"] * 2: 
-                        self.reproduction_criteria[good] = self.model.goods_params[good]["max"] * 2
-                
                 
             def selectBreed():    
                 if self.parent is not None:
@@ -165,12 +173,8 @@ class Agent():
             mutate_dict = {key: val if random.random() < self.mutate_rate else False for key, val in inheritance.items()} 
             # mutate select parameters
             selectParameters(mutate = True, **mutate_dict)
-
-
             
         if parent != None:
-            self.wealthiest = parent 
-            self.top_wealth = parent.wealth
             inheritance = parent.defineInheritance()
         self.parent = parent
         self.model = model
@@ -192,8 +196,6 @@ class Agent():
                                            herding  = False)
         
         else:
-            self.wealthiest = self 
-            self.top_wealth = 0
             selectParameters()
         # allocate each .good to agent within quantity in range specified by 
         # randomly choose initial target good
@@ -268,7 +270,6 @@ class Agent():
             try:
                 del copy_attributes[key]
             except:
-                print(key, copy_attributes)
                 continue 
         return copy_attributes
     
@@ -340,7 +341,7 @@ class Agent():
             
     def reproduce(self):
         if self.sugar > self.reproduction_criteria["sugar"] and\
-            self.water > self.reproduction_criteria["water"] and self.sugar > 0 and self.water > 0 :
+            self.water > self.reproduction_criteria["water"]:
             # make sure inherited values are up to date
 
             self.model.total_agents_created += 1
@@ -348,8 +349,10 @@ class Agent():
             ID = self.model.total_agents_created
             self.model.agent_dict[ID] =  Agent(self.model, row=row, col=col, 
                                                ID=ID, parent = self)
-            self.model.patches_dict[row][col].agent =  self.model.agent_dict[ID]
 
+            self.model.agent_dict[ID].top_wealth = self.wealth
+            self.model.agent_dict[ID].wealthiest = self
+            self.model.patches_dict[row][col].agent =  self.model.agent_dict[ID]
             if self.model.live_visual:
                 self.model.GUI.drawAgent(self.model.agent_dict[ID])
             self.reproduced = True
@@ -496,7 +499,7 @@ class Agent():
 
             # number of trades is determined by which agent has to stop trading first 
             num_trades = min(self_max_trades, partner_max_trades)
-            if num_trades > 1 and self_excess_demand > price and self_excess_demand > 0 and partner_excess_demand > 1 and partner_excess_demand > partner_res_min: 
+            if num_trades > 1 and self_excess_demand > price and partner_excess_demand > 1: 
                 
            
                 # adjust values of goods for agents based on how many trades were made 

@@ -14,6 +14,7 @@ from memory_profiler import memory_usage
 from scipy.stats.mstats import gmean
 matplotlib.use('TkAgg',force=True)
 from matplotlib import pyplot as plt
+import cython
 #from DataCollector import DataCollector
 #Model.py
 class Model():
@@ -26,12 +27,11 @@ class Model():
         self.model_attributes = model_attributes
         self.agent_attributes = agent_attributes
         self.attributes = agent_attributes + model_attributes
-        self.drop_attr = ["col", "row", "dx", "dy", "id", "wealth", "top_wealth", "wealthiest",
-             "sugar", "water","target", "not_target", "parent"]#, "image"]
+        self.drop_attr = ["col", "row", "dx", "dy", "id", "wealth", "top_wealth",
+             "sugar", "water","target", "not_target", 
+             "exchange_target", "not_exchange_target", "parent", "image"]
         #  "exchange_target", "not_exchange_target", "parent", "image", "arbitrageur", "herder"]
         self.live_visual = live_visual
-        if live_visual:
-            self.drop_attr.append("image")
         self.plots = plots
         
         self.GUI = gui
@@ -146,34 +146,12 @@ class Model():
         self.agent_wealth = 0
         for agent in agent_list:
                 agent.move()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("MOVE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 agent.harvest()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("HARVEST", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 agent.trade()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("TRADE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
-                
                 agent.consume()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("CONSUME", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 agent.check_alive()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("CHECKALIVE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 agent.reproduce()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("REPRODUCE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 agent.updateParams()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("UPDATEPARAMS", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
                 self.agent_wealth += agent.wealth
 
         

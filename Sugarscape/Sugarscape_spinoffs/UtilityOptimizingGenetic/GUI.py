@@ -12,7 +12,7 @@ from Model import *
 
 class GUI():
     def __init__(self, name, run, num_agents, live_visual, plots,
-                 every_t_frames_GUI = 1, every_t_frames_plots=100, 
+                 every_t_frames_GUI = 2, every_t_frames_plots=100, 
                  mutate = True, genetic = True, agent_attributes=None, 
                  model_attributes = None):
         if live_visual:
@@ -80,6 +80,8 @@ class GUI():
             color = "red"
         if agent.arbitrageur:
             color = "green"
+        if agent.optimizer: 
+            color = "magenta"
         outline = "black" if agent.herder else color
         return color, outline
     
@@ -100,9 +102,10 @@ class GUI():
 
 agent_attributes = []#"water", "sugar", "wealth", "basic",
                       #  "herder", "arbitrageur"]
-model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime", "water_avg_price", "sugar_avg_price", "tech_eff_capital",
+model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime",
+                     "water_avg_price", "sugar_avg_price", "tech_eff_capital", "wealth_per_capita", "savings",
                       #"num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
-                               "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand"]
+                        "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand", "optimizer_MRS", "num_optimizers"]
 
 
 # parent = Tk()
@@ -136,9 +139,9 @@ for mutate in [True]:
             data_agg.prepRun(name, str(run))
             # parent.title"Sugarscape"
             num_agents = 2000
-            periods = 10000
+            periods = 5000
             start = time.time()
-            y = GUI(name + str(run), run, num_agents, live_visual = True, plots = True, mutate = mutate, genetic = genetic,
+            y = GUI(name + str(run), run, num_agents, live_visual = False, plots = True, mutate = mutate, genetic = genetic,
                     agent_attributes = agent_attributes, 
                     model_attributes = model_attributes)
             y.model.runModel(periods)

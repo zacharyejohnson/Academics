@@ -12,7 +12,7 @@ from Model import *
 
 class GUI():
     def __init__(self, name, run, num_agents, live_visual, plots,
-                 every_t_frames_GUI = 1, every_t_frames_plots=100, 
+                 every_t_frames_GUI = 2, every_t_frames_plots=100, 
                  mutate = True, genetic = True, agent_attributes=None, 
                  model_attributes = None):
         if live_visual:
@@ -136,7 +136,7 @@ for mutate in [True]:
             data_agg.prepRun(name, str(run))
             # parent.title"Sugarscape"
             num_agents = 2000
-            periods = 10000
+            periods = 50000
             start = time.time()
             y = GUI(name + str(run), run, num_agents, live_visual = True, plots = True, mutate = mutate, genetic = genetic,
                     agent_attributes = agent_attributes, 
