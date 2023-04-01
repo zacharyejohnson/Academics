@@ -13,8 +13,8 @@ import pyarrow.parquet as pq
 import shutil
 
 class DataAggregator():
-    def __init__(self, agent_attributes, model_attributes):
-        self.folder = "parquet"
+    def __init__(self, primary_breed_set, agent_attributes, model_attributes):
+        self.folder =  "parquet" + "\\" + "-".join(primary_breed_set) 
         self.agent_attributes = agent_attributes
         self.model_attributes = model_attributes
         self.attributes = agent_attributes + model_attributes

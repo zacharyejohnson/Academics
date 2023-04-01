@@ -14,13 +14,13 @@ class GUI():
     def __init__(self, name, run, num_agents, live_visual, plots,
                  every_t_frames_GUI = 2, every_t_frames_plots=100, 
                  mutate = True, genetic = True, agent_attributes=None, 
-                 model_attributes = None):
+                 model_attributes = None, model_primary_breeds = ["basic", "optimizer", "arbitrageur"]):
         if live_visual:
             self.parent = Tk()
         self.name = name
         self.run = run
         self.plots = plots
-        self.model = Model(self, num_agents, mutate, genetic, live_visual, plots, agent_attributes, model_attributes)
+        self.model = Model(self, num_agents, mutate, genetic, live_visual, plots, agent_attributes, model_attributes, primary_breeds = primary_breed_set)
         self.dimPatch = 16
         self.live_visual = live_visual
         self.every_t_frames_GUI = every_t_frames_GUI
@@ -107,6 +107,8 @@ model_attributes = ["population", "total_exchanges", "total_agents_created", "to
                       #"num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
                         "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand", "optimizer_MRS", "num_optimizers"]
 
+# need not include run with just arbitrageurs
+breed_sets = [["basic", "optimizer", "arbitrageur"], ["optimizer", "arbitrageur"], ["basic", "arbitrageur"]]
 
 # parent = Tk()
 # parent.title = "Sugarscape"
@@ -123,47 +125,49 @@ model_attributes = ["population", "total_exchanges", "total_agents_created", "to
 
 
 
-runs = 30
-data_agg = DataAggregator(agent_attributes, model_attributes)
-for mutate in [True]:
-    for genetic in [True]:#(True, False):
-        name = "sugarscape" 
-        data_agg.prepSetting()
-        print("mutate", "genetic", sep = "\t")
-        print(mutate, genetic, sep = "\t")
-        print("trial", "agents", "periods", "time", sep = "\t")
-        gc.set_threshold(0)
-        for run in range(runs):
-            mem_usage = memory_usage(-1, interval=1)#, timeout=1)
-            print(run, "mem:", str(int(mem_usage[0]))  + " MB", sep = "\t")
-            data_agg.prepRun(name, str(run))
-            # parent.title"Sugarscape"
-            num_agents = 2000
-            periods = 5000
-            start = time.time()
-            y = GUI(name + str(run), run, num_agents, live_visual = False, plots = True, mutate = mutate, genetic = genetic,
-                    agent_attributes = agent_attributes, 
-                    model_attributes = model_attributes)
-            y.model.runModel(periods)
-            # print(dict(y.model.data_dict))
-            data_agg.saveRun(name, str(run), y.model.data_dict)
-            # run_data = copy.copy(y.model.data_dict)
-            del y.model.data_dict
-            # final_num_agents = len(y.model.agent_dict)
-            if y.live_visual:
-                y.parent.quit()
-                y.parent.destroy()
-            end = time.time()
-            elapse = end - start
-            print("runtime:", int(elapse), sep = "\t")
+runs = 20
+for primary_breed_set in breed_sets: 
+    data_agg = DataAggregator(primary_breed_set, agent_attributes, model_attributes)
+    for mutate in [True]:
+        for genetic in [True]:#(True, False):
+            name = "sugarscape" 
+            data_agg.prepSetting()
+            print("mutate", "genetic", sep = "\t")
+            print(mutate, genetic, sep = "\t")
+            print("trial", "agents", "periods", "time", sep = "\t")
+            gc.set_threshold(0)
+            for run in range(runs):
+                mem_usage = memory_usage(-1, interval=1)#, timeout=1)
+                print(run, "mem:", str(int(mem_usage[0]))  + " MB", sep = "\t")
+                data_agg.prepRun(name, str(run))
+                # parent.title"Sugarscape"
+                num_agents = 2000
+                periods = 5000
+                start = time.time()
+                y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False, mutate = mutate, genetic = genetic,
+                        agent_attributes = agent_attributes, 
+                        model_attributes = model_attributes, 
+                        model_primary_breeds=primary_breed_set)
+                y.model.runModel(periods)
+                # print(dict(y.model.data_dict))
+                data_agg.saveRun(name, str(run), y.model.data_dict)
+                # run_data = copy.copy(y.model.data_dict)
+                del y.model.data_dict
+                # final_num_agents = len(y.model.agent_dict)
+                if y.live_visual:
+                    y.parent.quit()
+                    y.parent.destroy()
+                end = time.time()
+                elapse = end - start
+                print("runtime:", int(elapse), sep = "\t")
 
-            # gc.collect()
-            # del run_data
-        data_agg.saveDistributionByPeriodWithParquet(name, runs)
-        data_agg.plotDistributionByPeriod(name, runs)
-        data_agg.remove_shelves()
-        data_agg.remove_parquet()
+                # gc.collect()
+                # del run_data
+            data_agg.saveDistributionByPeriodWithParquet(name, runs)
+            data_agg.plotDistributionByPeriod(name, runs)
+            data_agg.remove_shelves()
+            data_agg.remove_parquet()
 
 
-# if __name__ == "__main__":
-#     parent.mainloop()
+    # if __name__ == "__main__":
+    #     parent.mainloop()

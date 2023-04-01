@@ -19,7 +19,7 @@ import cython
 #Model.py
 class Model():
     def __init__(self, gui, num_agents, mutate, genetic, live_visual, plots, agent_attributes,
-                 model_attributes):
+                 model_attributes, primary_breeds = ["basic", "optimizer", "arbitrageur"]):
         
         self.initial_population = num_agents
         self.mutate = mutate
@@ -62,12 +62,18 @@ class Model():
 
         self.cross_over_rate = 0.5
 
-        self.primary_breeds = ["optimizer", "arbitrageur"]
+        self.primary_breeds = primary_breeds
         self.secondary_breeds = ["herder"]
         
         self.breeds = self.primary_breeds + self.secondary_breeds
 
-        self.breed_probabilities = {#"basic":1, # if you are not a basic, you are a switcher
+        if "basic" in primary_breeds: 
+            self.breed_probabilities = {"basic":1, # if you are not a basic, you are a switcher
+                                    "herder":0,
+                                    "arbitrageur":0, 
+                                    "optimizer": 0}
+        else: 
+            self.breed_probabilities = {#"basic":1, # if you are not a basic, you are a switcher
                                     "herder":0,
                                     "arbitrageur":0, 
                                     "optimizer": 1}
