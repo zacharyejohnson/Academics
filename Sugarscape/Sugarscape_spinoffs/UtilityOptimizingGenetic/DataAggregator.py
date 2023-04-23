@@ -18,6 +18,7 @@ class DataAggregator():
         self.agent_attributes = agent_attributes
         self.model_attributes = model_attributes
         self.attributes = agent_attributes + model_attributes
+        self.primary_breeds = primary_breed_set
         
         try:
             os.mkdir(self.folder)
@@ -32,6 +33,19 @@ class DataAggregator():
         #         for file in files: 
         #             os.remove(path + "/" + file)
         # self.trial_data = {}#shelve.open(self.folder + "\\dataAgMaster")
+
+        if "num_optimizers" in self.attributes and "optimizer" not in self.primary_breeds: 
+             self.model_attributes.remove("num_optimizers")
+             self.attributes.remove("num_optimizers")
+
+        for breed in ["basic", "optimizer", "arbitrageur"]:
+            if breed not in self.primary_breeds: 
+                for attr in self.attributes: 
+                    if breed in attr: 
+                        self.model_attributes.remove(attr)
+                        self.attributes.remove(attr)
+
+        print(self.attributes)
             
     def prepSetting(self):
         if not os.path.exists(self.folder):
@@ -101,6 +115,7 @@ class DataAggregator():
              #                           for attr in self.attributes}
             
             for attr in self.attributes: 
+                print(attr)
                 for run in range(runs): 
                     filepath = self.folder + "\\" + attr + "\\" + str(run) + ".parquet"
                     df = pd.read_parquet(filepath)

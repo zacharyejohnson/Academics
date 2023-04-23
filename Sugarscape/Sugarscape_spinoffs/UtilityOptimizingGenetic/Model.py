@@ -27,13 +27,30 @@ class Model():
         self.model_attributes = model_attributes
         self.agent_attributes = agent_attributes
         self.attributes = agent_attributes + model_attributes
+        self.primary_breeds = primary_breeds
         self.drop_attr = ["col", "row", "dx", "dy", "id", "wealth", "top_wealth",
              "sugar", "water","target", "not_target", 
-             "exchange_target", "not_exchange_target", "parent", "MRS", "wealth_by_good", "sugar_utility_weight", "water_utility_weight"]#, "image"]
+             "exchange_target", "not_exchange_target", "parent", "MRS", "wealth_by_good", "sugar_utility_weight", "water_utility_weight"]#, "price_change", "quantity_change"]#, "image"]
         #  "exchange_target", "not_exchange_target", "parent", "image", "arbitrageur", "herder"]
         self.live_visual = live_visual
         if live_visual:
             self.drop_attr.append("image")
+
+
+        # clean up model attributes to ensure only pulling attributes for agent types in the current run 
+        if "num_optimizers" in self.attributes and "optimizer" not in self.primary_breeds: 
+             self.model_attributes.remove("num_optimizers")
+             self.attributes.remove("num_optimizers")
+
+        for breed in ["basic", "optimizer", "arbitrageur"]:
+            if breed not in self.primary_breeds: 
+                for attr in self.attributes: 
+                    if breed in attr: 
+                        self.model_attributes.remove(attr)
+                        self.attributes.remove(attr)
+
+
+
         self.plots = plots
         
         self.GUI = gui
@@ -62,7 +79,7 @@ class Model():
 
         self.cross_over_rate = 0.5
 
-        self.primary_breeds = primary_breeds
+        
         self.secondary_breeds = ["herder"]
         
         self.breeds = self.primary_breeds + self.secondary_breeds
@@ -73,7 +90,7 @@ class Model():
                                     "arbitrageur":0, 
                                     "optimizer": 0}
         else: 
-            self.breed_probabilities = {#"basic":1, # if you are not a basic, you are a switcher
+            self.breed_probabilities = {"basic":0, # if you are not a basic, you are a switcher
                                     "herder":0,
                                     "arbitrageur":0, 
                                     "optimizer": 1}
@@ -103,11 +120,14 @@ class Model():
         self.sugar_avg_price = 1
         self.total_avg_price = 1
         self.total_exchanges = 0
+        self.total_variance = 0
+        self.water_variance = 0 
+        self.sugar_variance = 0 
         self.population = len(self.agent_dict)
-        self.bb_res_demand = 1
-        self.bh_res_demand = 1
-        self.ab_res_demand = 1
-        self.ah_res_demand = 1
+        self.basicbasic_res_demand = 1
+        self.basicherder_res_demand = 1
+        self.arbitrageurbasic_res_demand = 1
+        self.arbitrageurherder_res_demand = 1
         self.optimizer_MRS = 1 
         self.agent_wealth = 0
         self.runtime = 0
@@ -151,10 +171,10 @@ class Model():
             self.num_basicbasics = 0 
             self.num_arbitrageurbasics = 0
             self.num_optimizers = 0 
-            bb_res_demand = []
-            bh_res_demand = []
-            ab_res_demand = []
-            ah_res_demand = []
+            basicbasic_res_demand = []
+            basicherder_res_demand = []
+            arbitrageurbasic_res_demand = []
+            arbitrageurherder_res_demand = []
             optimizer_MRS = []
         # temp_dict={}
         # for attribute in self.agent_attributes:
@@ -166,40 +186,40 @@ class Model():
         self.agent_wealth = 0
         self.consumption = 0
         for agent in agent_list:
-                agent.move()
-                # if agent.sugar < -.5 or agent.water < -.5: 
-                #     print("MOVE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                #     continue
-                agent.harvest()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("HARVEST", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    del self.agent_dict[agent.id]
-                    self.empty_patches[agent.row, agent.col] = self.patches_dict[agent.row][agent.col]
-                    continue
-                agent.trade()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("TRADE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
-                
-                agent.consume()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("CONSUME", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
-                agent.check_alive()
-
-
-                agent.reproduce()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("REPRODUCE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
-                agent.updateParams()
-                if agent.sugar < -.5 or agent.water < -.5: 
-                    print("UPDATEPARAMS", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
-                    continue
-                if agent in self.agent_dict.values(): 
-                    self.agent_wealth += agent.wealth
-                    self.consumption += 1
+                if agent.check_alive(): 
+                    agent.move()
+                    # if agent.sugar < -.5 or agent.water < -.5: 
+                    #     print("MOVE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                    #     continue
+                    agent.harvest()
+                    if agent.sugar < -.5 or agent.water < -.5: 
+                        print("HARVEST", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                        del self.agent_dict[agent.id]
+                        self.empty_patches[agent.row, agent.col] = self.patches_dict[agent.row][agent.col]
+                        continue
+                    agent.trade()
+                    if agent.sugar < -.5 or agent.water < -.5: 
+                        print("TRADE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                        continue
                     
+                    agent.consume()
+                    if agent.sugar < -.5 or agent.water < -.5: 
+                        print("CONSUME", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                        continue
+
+
+                    agent.reproduce()
+                    if agent.sugar < -.5 or agent.water < -.5: 
+                        print("REPRODUCE", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                        continue
+                    agent.updateParams()
+                    if agent.sugar < -.5 or agent.water < -.5: 
+                        print("UPDATEPARAMS", agent.sugar, agent.water, agent.basic, agent.herder, agent.arbitrageur)
+                        continue
+                    if agent in self.agent_dict.values(): 
+                        self.agent_wealth += agent.wealth
+                        self.consumption += 1
+                        
 
 
 
@@ -209,29 +229,29 @@ class Model():
                 if self.model_attributes != []: # and self.plots:
                     if not agent.herder and not agent.arbitrageur and not agent.optimizer: 
                         self.num_basicbasics += 1
-                        bb_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        basicbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
                     elif agent.herder and not agent.arbitrageur and not agent.optimizer: 
                         self.num_basicherders += 1
-                        bh_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        basicherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
                     elif not agent.herder and agent.arbitrageur and not agent.optimizer: 
                         self.num_arbitrageurbasics += 1
-                        ab_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        arbitrageurbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
                     elif agent.herder and agent.arbitrageur and not agent.optimizer: 
                         self.num_arbitrageurherders += 1
-                        ah_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        arbitrageurherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
                     elif agent.optimizer: 
                         self.num_optimizers += 1
                         optimizer_MRS.append(agent.MRS)
 
         if self.model_attributes != []: # and self.plots:
-            if len(bb_res_demand) > 0:
-                self.bb_res_demand = gmean(bb_res_demand)
-            if len(bh_res_demand) > 0:
-                self.bh_res_demand = gmean(bh_res_demand)
-            if len(ab_res_demand) > 0:
-                self.ab_res_demand = gmean(ab_res_demand)
-            if len(ah_res_demand) > 0:
-               self.ah_res_demand = gmean(ah_res_demand)
+            if len(basicbasic_res_demand) > 0:
+                self.basicbasic_res_demand = gmean(basicbasic_res_demand)
+            if len(basicherder_res_demand) > 0:
+                self.basicherder_res_demand = gmean(basicherder_res_demand)
+            if len(arbitrageurbasic_res_demand) > 0:
+                self.arbitrageurbasic_res_demand = gmean(arbitrageurbasic_res_demand)
+            if len(arbitrageurherder_res_demand) > 0:
+               self.arbitrageurherder_res_demand = gmean(arbitrageurherder_res_demand)
             if len(optimizer_MRS) > 0:
                self.optimizer_MRS = gmean(optimizer_MRS)
         # for attribute, val in temp_dict.items():
@@ -256,6 +276,10 @@ class Model():
                 setattr(self, "water_avg_price", avg_water)
                 setattr(self, "sugar_avg_price", avg_sugar)
                 setattr(self, "total_avg_price", avg_total)
+                # setattr(self, "total_variance", np.std(self.all_prices))
+                # setattr(self, "water_variance", np.std(self.transaction_prices['water']))
+                # setattr(self, "sugar_variance", np.std(self.transaction_prices['sugar']))
+
             self.collectData(str(period))
             end1 = time.time()
             self.runtime = end1-start1
@@ -280,21 +304,48 @@ class Model():
 
     def plot_data(self):
 
-        num_rows = int((len(self.data_dict) / 2)) + 1
+        num_rows = int((len(self.data_dict) / 2)) -4
         num_cols = 2
         self.fig, self.axs = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(20,30))
 
 
         # Iterate over the data in the dictionary
+        j = 0 
         for i, (variable, data) in enumerate(self.data_dict.items()):
-            # Get the row and column for the current plot
-            row = i // 2
-            col = i % 2
-            print(variable)
-            # Plot the data for the current variable
-            self.axs[row, col].plot(data.values())
-            self.axs[row, col].set_xlabel('Period')
-            self.axs[row, col].set_ylabel(variable.replace("_", "\n"))
+            
+            if "num" in variable: 
+                #plot proportions of each agent over time in final plot 
+                self.axs[num_rows - 1, 1].plot(np.array(list(data.values())) / np.array(list(self.data_dict["population"].values())), label = variable[4:]) # get rid of "num_"
+                self.axs[num_rows - 1, 1].set_ylabel("Population\nShare")
+                self.axs[num_rows - 1, 1].legend(fontsize=7, loc=2)
+                j += 1
+            elif "price" in variable:
+                self.axs[num_rows - 1, 0].plot(data.values(), label = variable[:9]) # get rid of "_avg_price"... etc 
+                self.axs[num_rows - 1, 0].set_ylabel("Prices")
+                self.axs[num_rows - 1, 0].legend(fontsize=7, loc=2)
+                j += 1
+                self.axs[num_rows - 2, 0].plot(np.diff(list(data.values())), label = variable[:9])
+                self.axs[num_rows - 2, 0].set_ylabel("Price\nVariance")
+                self.axs[num_rows - 2, 0].legend(fontsize=7)
+            elif "res_demand" in variable:
+                self.axs[num_rows - 2, 1].plot(data.values(), label = variable[:2])
+                self.axs[num_rows - 2, 1].set_ylabel("Reservation\nDemands")
+                self.axs[num_rows - 2, 1].legend(fontsize=7, loc=2)
+                j += 1
+
+            else: 
+            
+
+
+                # Get the row and column for the current plot
+                row = (i-j) // 2
+                col = (i-j) % 2
+                print(variable)
+                # Plot the data for the current variable
+                self.axs[row, col].plot(data.values())
+                self.axs[row, col].set_xlabel('Period')
+                self.axs[row, col].set_ylabel(variable.replace("_", "\n"))
+            
 
         # Redraw the plots
         self.fig.canvas.draw()
@@ -394,5 +445,5 @@ class Model():
             for attribute in self.model_attributes:
                 self.data_dict[attribute][period] = getattr(self, attribute)
                 
-        collectAgentAttributes()
+        #collectAgentAttributes()
         collectModelAttributes()

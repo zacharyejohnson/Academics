@@ -103,12 +103,14 @@ class GUI():
 agent_attributes = []#"water", "sugar", "wealth", "basic",
                       #  "herder", "arbitrageur"]
 model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price", "runtime",
-                     "water_avg_price", "sugar_avg_price", "tech_eff_capital", "wealth_per_capita", "savings",
-                      #"num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
-                        "bb_res_demand", "bh_res_demand", "ab_res_demand", "ah_res_demand", "optimizer_MRS", "num_optimizers"]
+                     "water_avg_price", "sugar_avg_price",# "total_variance", "water_variance", "sugar_variance",
+                       "tech_eff_capital", "wealth_per_capita", "savings",
+                      "num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics", 
+                        "basicbasic_res_demand", "basicherder_res_demand", "arbitrageurbasic_res_demand", "arbitrageurherder_res_demand", "optimizer_MRS", "num_optimizers"]
 
 # need not include run with just arbitrageurs
-breed_sets = [["basic", "optimizer", "arbitrageur"], ["optimizer", "arbitrageur"], ["basic", "arbitrageur"]]
+breed_sets = [["basic", "arbitrageur"]]#, ["optimizer", "arbitrageur"], 
+             # ["basic"]]
 
 # parent = Tk()
 # parent.title = "Sugarscape"
@@ -125,7 +127,7 @@ breed_sets = [["basic", "optimizer", "arbitrageur"], ["optimizer", "arbitrageur"
 
 
 
-runs = 20
+runs = 2
 for primary_breed_set in breed_sets: 
     data_agg = DataAggregator(primary_breed_set, agent_attributes, model_attributes)
     for mutate in [True]:
@@ -142,7 +144,7 @@ for primary_breed_set in breed_sets:
                 data_agg.prepRun(name, str(run))
                 # parent.title"Sugarscape"
                 num_agents = 2000
-                periods = 5000
+                periods = 200
                 start = time.time()
                 y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False, mutate = mutate, genetic = genetic,
                         agent_attributes = agent_attributes, 
