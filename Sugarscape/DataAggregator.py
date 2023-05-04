@@ -13,11 +13,12 @@ import pyarrow.parquet as pq
 import shutil
 
 class DataAggregator():
-    def __init__(self, agent_attributes, model_attributes):
-        self.folder = "parquet"
+    def __init__(self, primary_breed_set, agent_attributes, model_attributes):
+        self.folder =  "parquet" + "\\" + "-".join(primary_breed_set) 
         self.agent_attributes = agent_attributes
         self.model_attributes = model_attributes
         self.attributes = agent_attributes + model_attributes
+        self.primary_breeds = primary_breed_set
         
         try:
             os.mkdir(self.folder)
@@ -32,6 +33,51 @@ class DataAggregator():
         #         for file in files: 
         #             os.remove(path + "/" + file)
         # self.trial_data = {}#shelve.open(self.folder + "\\dataAgMaster")
+
+        if "num_optimizers" in self.attributes and "optimizer" not in self.primary_breeds: 
+             self.model_attributes.remove("num_optimizers")
+             self.attributes.remove("num_optimizers")
+             self.attributes.remove("optimizer_MRS")
+
+        if "arbitrageur" not in self.primary_breeds:
+             if "num_arbitrageurbasics" in self.attributes: 
+                self.model_attributes.remove("num_arbitrageurbasics")
+                self.attributes.remove("num_arbitrageurbasics")
+             if "num_arbitrageurherders" in self.attributes:
+                self.model_attributes.remove("num_arbitrageurherders")
+                self.attributes.remove("num_arbitrageurherders")
+             if "arbitrageurbasic_res_demand" in self.attributes:
+                self.model_attributes.remove("arbitrageurbasic_res_demand")
+                self.attributes.remove("arbitrageurbasic_res_demand")
+             if "arbitrageurherder_res_demand" in self.attributes:
+                self.model_attributes.remove("arbitrageurherder_res_demand")
+                self.attributes.remove("arbitrageurherder_res_demand")
+
+        if "basic" not in self.primary_breeds:
+             if "num_basicbasics" in self.attributes: 
+                self.model_attributes.remove("num_basicbasics")
+                self.attributes.remove("num_basicbasics")
+             if "num_basicherders" in self.attributes:
+                self.model_attributes.remove("num_basicherders")
+                self.attributes.remove("num_basicherders")
+             if "basicbasic_res_demand" in self.attributes:
+                self.model_attributes.remove("basicbasic_res_demand")
+                self.attributes.remove("basicbasic_res_demand")
+             if "basicherder_res_demand" in self.attributes:
+                self.model_attributes.remove("basicherder_res_demand")
+                self.attributes.remove("basicherder_res_demand")
+
+        
+      
+
+        for breed in ["basic", "optimizer", "arbitrageur"]:
+            if breed not in self.primary_breeds: 
+                for attr in self.attributes: 
+                    if breed in attr: 
+                        self.model_attributes.remove(attr)
+                        self.attributes.remove(attr)
+
+        print(self.attributes)
             
     def prepSetting(self):
         if not os.path.exists(self.folder):
@@ -101,6 +147,7 @@ class DataAggregator():
              #                           for attr in self.attributes}
             
             for attr in self.attributes: 
+                print(attr)
                 for run in range(runs): 
                     filepath = self.folder + "\\" + attr + "\\" + str(run) + ".parquet"
                     df = pd.read_parquet(filepath)
