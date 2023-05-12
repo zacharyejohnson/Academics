@@ -109,7 +109,7 @@ model_attributes = ["population", "total_exchanges", "total_agents_created", "to
                         "basicbasic_res_demand", "basicherder_res_demand", "arbitrageurbasic_res_demand", "arbitrageurherder_res_demand", "optimizer_MRS", "num_optimizers"]
 
 # need not include run with just arbitrageurs
-breed_sets = [["basic", "optimizer", "arbitrageur"]]
+breed_sets = [["basic", "optimizer", "arbitrageur"], ["basic", "arbitrageur"], ["optimizer", "arbitrageur"]]
 
 # parent = Tk()
 # parent.title = "Sugarscape"
@@ -143,9 +143,9 @@ for primary_breed_set in breed_sets:
                 data_agg.prepRun(name, str(run))
                 # parent.title"Sugarscape"
                 num_agents = 2000
-                periods = 800
+                periods = 5000
                 start = time.time()
-                y = GUI(name + str(run), run, num_agents, live_visual = True, plots = True, mutate = mutate, genetic = genetic,
+                y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False, mutate = mutate, genetic = genetic,
                         agent_attributes = agent_attributes, 
                         model_attributes = model_attributes, 
                         model_primary_breeds=primary_breed_set)

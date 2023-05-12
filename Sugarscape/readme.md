@@ -1,8 +1,10 @@
-The Economy as a Distributed Genetic Algorithm
+The Economy as a Distributed Genetic Algorithm 
 
 A comparison of neoclassical economic theory and heuristic-based decision making.
 
 This project simulates agent behavior in the Sugarscape (Epstein and Axtell 1996) as either neoclassical (optimizer) or heuristic-based (basic), with optional arbitrageur agent. 
+
+Project: https://github.com/zacharyejohnson/Academics/tree/main/Sugarscape
 
 How to run: 
 
