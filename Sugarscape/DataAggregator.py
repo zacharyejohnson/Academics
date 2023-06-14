@@ -12,6 +12,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import shutil
 
+
+# make dicts with agents type attributes 
+
 class DataAggregator():
     def __init__(self, primary_breed_set, agent_attributes, model_attributes):
         self.folder =  "parquet" + "\\" + "-".join(primary_breed_set) 

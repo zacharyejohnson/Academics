@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 #Model.py
 class Model():
     def __init__(self, gui, num_agents, mutate, genetic, live_visual, plots, agent_attributes,
-                 model_attributes, primary_breeds = ["basic", "optimizer", "arbitrageur"]):
+                 model_attributes, primary_breeds):
         
         self.initial_population = num_agents
         self.mutate = mutate
@@ -30,7 +30,7 @@ class Model():
         self.primary_breeds = primary_breeds
         self.drop_attr = ["col", "row", "dx", "dy", "id", "wealth", "top_wealth",
              "sugar", "water","target", "not_target", 
-             "exchange_target", "not_exchange_target", "parent", "MRS", "wealth_by_good", "sugar_utility_weight", "water_utility_weight"]#, "price_change", "quantity_change"]#, "image"]
+             "exchange_target", "not_exchange_target", "parent", "MRS", "wealth_by_good", "sugar_utility_weight", "water_utility_weight", "reservation_demand"]#, "price_change", "quantity_change"]#, "image"]
         #  "exchange_target", "not_exchange_target", "parent", "image", "arbitrageur", "herder"]
         self.live_visual = live_visual
         if live_visual:
@@ -42,12 +42,16 @@ class Model():
              self.model_attributes.remove("num_optimizers")
              self.attributes.remove("num_optimizers")
 
+    
+
+
         for breed in ["basic", "optimizer", "arbitrageur"]:
             if breed not in self.primary_breeds: 
                 for attr in self.attributes: 
                     if breed in attr: 
                         self.model_attributes.remove(attr)
                         self.attributes.remove(attr)
+                
 
 
 
@@ -120,9 +124,9 @@ class Model():
         self.sugar_avg_price = 1
         self.total_avg_price = 1
         self.total_exchanges = 0
-        self.total_variance = 0
-        self.water_variance = 0 
-        self.sugar_variance = 0 
+        self.price_variance = 0
+        # self.water_variance = 0 
+        # self.sugar_variance = 0 
         self.population = len(self.agent_dict)
         self.basicbasic_res_demand = 1
         self.basicherder_res_demand = 1
@@ -131,6 +135,12 @@ class Model():
         self.optimizer_MRS = 1 
         self.agent_wealth = 0
         self.runtime = 0
+        self.avg_mutation_rate = 0
+        self.real_income_per_capital = 0
+        self.income=0
+        self.savings=0
+        
+
 
     def initializePatches(self):
         self.patches_dict = {i:{j:0}
@@ -171,69 +181,88 @@ class Model():
             self.num_basicbasics = 0 
             self.num_arbitrageurbasics = 0
             self.num_optimizers = 0 
-            basicbasic_res_demand = []
-            basicherder_res_demand = []
-            arbitrageurbasic_res_demand = []
-            arbitrageurherder_res_demand = []
-            optimizer_MRS = []
+            #self.transaction_prices["water"] = []
+            #self.transaction_prices["sugar"] = []
+            self.all_prices = []
+            #self.transaction_weights["water"] = []
+            #self.transaction_weights["sugar"] = []
+            #self.all_prices_weights = []
+
+            # basicbasic_res_demand = []
+            # basicherder_res_demand = []
+            # arbitrageurbasic_res_demand = []
+            # arbitrageurherder_res_demand = []
+            # optimizer_MRS = []
+            self.mutate_rate_list = []
+            self.price_change_list = []
+            
+            
         # temp_dict={}
         # for attribute in self.agent_attributes:
         #     temp_dict[attribute] = []
-        self.temp_wealth = 0
-        self.temp_wealth += self.agent_wealth
-        self.temp_pop = 0 
-        self.temp_pop += self.population
+        # self.temp_wealth = 0
+        # self.temp_wealth += self.agent_wealth
+        # self.temp_pop = 0 
+        # self.temp_pop += self.population
         self.agent_wealth = 0
         self.consumption = 0
-        self.net_savings = 0 
+        self.savings = 0 
+        self.income = 0 
+        
         for agent in agent_list:
-                if agent.check_alive(): 
+                
+                     
                     agent.move()
                     agent.harvest()
-                    if agent.sugar < -.5 or agent.water < -.5: 
-                        del self.agent_dict[agent.id]
-                        self.empty_patches[agent.row, agent.col] = self.patches_dict[agent.row][agent.col]
-                        continue
                     agent.trade()
                     agent.consume()
+                    agent.check_alive()
                     agent.reproduce()
                     agent.updateParams()
-                    if agent in self.agent_dict.values(): 
-                        self.agent_wealth += agent.wealth
+                     
+                
+                    
 
 
 
         
 
                 # #agent statistics tracking 
-                if self.model_attributes != []: # and self.plots:
-                    if not agent.herder and not agent.arbitrageur and not agent.optimizer: 
-                        self.num_basicbasics += 1
-                        basicbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                    elif agent.herder and not agent.arbitrageur and not agent.optimizer: 
-                        self.num_basicherders += 1
-                        basicherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                    elif not agent.herder and agent.arbitrageur and not agent.optimizer: 
-                        self.num_arbitrageurbasics += 1
-                        arbitrageurbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                    elif agent.herder and agent.arbitrageur and not agent.optimizer: 
-                        self.num_arbitrageurherders += 1
-                        arbitrageurherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
-                    elif agent.optimizer: 
-                        self.num_optimizers += 1
-                        optimizer_MRS.append(agent.MRS)
+                    if self.model_attributes != []: # and self.plots:
+                        #self.mutate_rate_list.append(agent.mutate_rate)
+                        #self.price_change_list.append(agent.price_change)
+                        if not agent.herder and not agent.arbitrageur and not agent.optimizer: 
+                            self.num_basicbasics += 1
+                            #basicbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        elif agent.herder and not agent.arbitrageur and not agent.optimizer: 
+                            self.num_basicherders += 1
+                            #basicherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        elif not agent.herder and agent.arbitrageur and not agent.optimizer: 
+                            self.num_arbitrageurbasics += 1
+                            #arbitrageurbasic_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        elif agent.herder and agent.arbitrageur and not agent.optimizer: 
+                            self.num_arbitrageurherders += 1
+                            #arbitrageurherder_res_demand.append(agent.reservation_demand["sugar"]["price"])
+                        elif agent.optimizer: 
+                            self.num_optimizers += 1
+                            #optimizer_MRS.append(agent.MRS)
 
-        if self.model_attributes != []: # and self.plots:
-            if len(basicbasic_res_demand) > 0:
-                self.basicbasic_res_demand = gmean(basicbasic_res_demand)
-            if len(basicherder_res_demand) > 0:
-                self.basicherder_res_demand = gmean(basicherder_res_demand)
-            if len(arbitrageurbasic_res_demand) > 0:
-                self.arbitrageurbasic_res_demand = gmean(arbitrageurbasic_res_demand)
-            if len(arbitrageurherder_res_demand) > 0:
-               self.arbitrageurherder_res_demand = gmean(arbitrageurherder_res_demand)
-            if len(optimizer_MRS) > 0:
-               self.optimizer_MRS = gmean(optimizer_MRS)
+                    self.agent_wealth += agent.wealth
+                    self.consumption += agent.period_consumption
+                    self.savings += agent.period_savings 
+                    self.income += agent.period_income 
+
+        # if self.model_attributes != []: # and self.plots:
+        #     if len(basicbasic_res_demand) > 0:
+        #         self.basicbasic_res_demand = gmean(basicbasic_res_demand)
+        #     if len(basicherder_res_demand) > 0:
+        #         self.basicherder_res_demand = gmean(basicherder_res_demand)
+        #     if len(arbitrageurbasic_res_demand) > 0:
+        #         self.arbitrageurbasic_res_demand = gmean(arbitrageurbasic_res_demand)
+        #     if len(arbitrageurherder_res_demand) > 0:
+        #        self.arbitrageurherder_res_demand = gmean(arbitrageurherder_res_demand)
+        #     if len(optimizer_MRS) > 0:
+        #        self.optimizer_MRS = gmean(optimizer_MRS)
         # for attribute, val in temp_dict.items():
         #         self.data_dict[attribute].__setitem__(str(period), np.mean(val)
 
@@ -243,29 +272,37 @@ class Model():
             # Simulate the agents interacting
             start1 = time.time()
             self.growPatches()
-            self.simulate_interactions(period)
             setattr(self, "population", len(self.agent_dict))
+            self.simulate_interactions(period)
+            #self.avg_mutation_rate = gmean(self.mutate_rate_list)
+            #self.avg_heuristic_price_change = gmean(self.price_change_list)
+            
             setattr(self, "wealth_per_capita", self.agent_wealth / self.population)
-            setattr(self, "consumption", len(self.agent_dict))
-            setattr(self, "savings", self.agent_wealth / self.population - self.temp_wealth / self.temp_pop)
-            setattr(self, "savings_change", (self.agent_wealth - self.temp_wealth) / self.population)
+            # setattr(self, "consumption", len(self.agent_dict))
+            # setattr(self, "savings", (self.agent_wealth - self.temp_wealth))
+            # setattr(self, "income", self.consumption + self.savings)
+            setattr(self, "real_income_per_capital", self.income / self.population)
+            
+            self.savings  = self.savings / self.population 
 
-            setattr(self, "tech_eff_capital", (self.savings_change +  self.consumption) / self.population)
+
+            #setattr(self, "savings_change", (self.agent_wealth - self.temp_wealth) / self.population)
+
+            #setattr(self, "tech_eff_capital", (self.savings_change +  self.consumption) / self.population)
 
             if period > 1: 
-                avg_water = gmean(self.transaction_prices['water'], weights=self.transaction_weights['water'])
-                avg_sugar = gmean(self.transaction_prices['sugar'], weights=self.transaction_weights['sugar'])
-                avg_total = gmean(self.all_prices, weights=self.all_prices_weights)
-                setattr(self, "water_avg_price", avg_water)
-                setattr(self, "sugar_avg_price", avg_sugar)
+                #avg_water = gmean(self.transaction_prices['water'])
+                #avg_sugar = gmean(self.transaction_prices['sugar'])
+                avg_total = gmean(self.all_prices)
+                #setattr(self, "water_avg_price", avg_water)
+                #setattr(self, "sugar_avg_price", avg_sugar)
                 setattr(self, "total_avg_price", avg_total)
-                # setattr(self, "total_variance", np.std(self.all_prices))
-                # setattr(self, "water_variance", np.std(self.transaction_prices['water']))
-                # setattr(self, "sugar_variance", np.std(self.transaction_prices['sugar']))
-
-            self.collectData(str(period))
+                #setattr(self, "price_variance", np.std(self.all_prices))
+                
             end1 = time.time()
             self.runtime = end1-start1
+            self.collectData(str(period))
+            
             if period % 10 == 0: 
                 print(period, self.runtime)
 
@@ -287,7 +324,7 @@ class Model():
 
     def plot_data(self):
 
-        num_rows = int((len(self.data_dict) / 2)) -4
+        num_rows = int((len(self.data_dict) / 2)) + 1
         num_cols = 2
         self.fig, self.axs = plt.subplots(nrows=num_rows, ncols=num_cols, figsize=(20,30))
 
@@ -302,14 +339,11 @@ class Model():
                 self.axs[num_rows - 1, 1].set_ylabel("Population\nShare")
                 self.axs[num_rows - 1, 1].legend(fontsize=7, loc=2)
                 j += 1
-            elif "price" in variable:
-                self.axs[num_rows - 1, 0].plot(data.values(), label = variable[:9]) # get rid of "_avg_price"... etc 
+            elif "_price" in variable and "hueristic" not in variable:
+                self.axs[num_rows - 1, 0].plot(data.values(), label = variable[:9], linewidth=0.1) # get rid of "_avg_price"... etc 
                 self.axs[num_rows - 1, 0].set_ylabel("Prices")
                 self.axs[num_rows - 1, 0].legend(fontsize=7, loc=2)
-                j += 1
-                self.axs[num_rows - 2, 0].plot(np.diff(list(data.values())), label = variable[:9])
-                self.axs[num_rows - 2, 0].set_ylabel("Price\nVariance")
-                self.axs[num_rows - 2, 0].legend(fontsize=7)
+                
                 
             elif "res_demand" in variable:
                 self.axs[num_rows - 2, 1].plot(data.values(), label = variable[:2])
@@ -334,75 +368,6 @@ class Model():
         # Redraw the plots
         self.fig.canvas.draw()
         plt.show()
-
-
-
-                    
-    # the reproduce funtion is implemented in model class to avoid circular dependencies in agent class 
-    # def agent_reproduce(self, agent): 
-    #     if agent in self.agent_dict.values(): 
-    #         can_reproduce = True
-    #         for good in self.goods: 
-    #             if getattr(agent, good) < agent.reproduction_criteria[good]: 
-    #                 can_reproduce = False 
-    #                 break
-            
-    #         if can_reproduce: 
-
-    #             def child_breed(): 
-    #                 # mutation means that agent switches breed 
-    #                 def primary_breed(): 
-    #                     if random.random() < agent.mutate_rate: 
-    #                         breed = "basic" if agent.arbitrageur else "arbitrageur"
-    #                     else: 
-    #                         breed = "arbitrageur" if agent.arbitrageur else "basic"
-
-    #                     return breed
-
-                            
-    #                 def secondary_breed():
-    #                     if random.random() < agent.mutate_rate: 
-    #                         breed = "basic" if agent.herder == True else "herder"
-    #                     else: 
-    #                         breed = "herder" if agent.herder == True else "basic"
-
-    #                     return breed
-
-    #                 return primary_breed(), secondary_breed()
-
-    #             child_breed = child_breed()
-
-    #             self.total_agents_created += 1
-    #             row, col = self.chooseRandomEmptyPatch()  
-    #             ID = self.total_agents_created
-                
-    #             if child_breed == ("basic", "basic"): 
-    #                 self.num_basicsbasics += 1
-    #                 self.agent_dict[ID] =  BasicAgent(model=self, row=row, col=col, ID=ID, parent=agent)
-    #             elif child_breed == ("basic", "herder"): 
-    #                 self.num_basicherders += 1
-    #                 self.agent_dict[ID] =  BasicHerder(model=self, row=row, col=col, ID=ID, parent=agent)
-    #             elif child_breed == ("arbitrageur", "basic"): 
-    #                 self.num_arbitrageursbasics += 1
-    #                 self.agent_dict[ID] =  Arbitrageur(model=self, row=row, col=col, ID=ID, parent=agent)
-    #             elif child_breed == ("arbitrageur", "herder"):
-    #                 self.num_arbitrageursherders += 1
-    #                 self.agent_dict[ID] = ArbitrageurHerder(model=self, row=row, col=col, ID=ID, parent=agent)
-    #             else: 
-    #                 print("error")
-
-    #             # add good quantities to new agent, deduct from parent
-    #             # self.agent_dict[ID].goods = {}
-    #             # for good in self.goods:
-    #             #      agent.goods[good] -= agent.reproduction_criteria[good]
-    #             #      self.agent_dict[ID].goods[good] = 0
-    #             #      self.agent_dict[ID].goods[good] += agent.reproduction_criteria[good]
-    #             self.agent_dict[ID].top_wealth = agent.get_wealth()
-    #             self.agent_dict[ID].wealthiest = agent
-    #             self.patches_dict[row][col].agent =  self.agent_dict[ID]
-    #             if self.live_visual: 
-    #                 self.GUI.draw_agent(self.agent_dict[ID])
-    #             agent.reproduced = True
 
     
     def growPatches(self):

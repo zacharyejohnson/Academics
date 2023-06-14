@@ -1,6 +1,7 @@
 
 import copy
 import random
+from math import sqrt
 import numpy as np
 from scipy.stats.mstats import gmean
 from Patch import *
@@ -9,6 +10,11 @@ from Patch import *
 class Agent():
     # **inheritance are the inherited
     def __init__(self, model, row, col, ID, parent = None):
+
+        self.period_consumption = 0
+        self.period_income = 0 
+        self.period_savings = 0 
+
          
         def selectParameters(mutate = False, reservation_demand = True, 
                              reproduction_criteria= True,  
@@ -82,6 +88,8 @@ class Agent():
                  
             def selectBreed():    
                 if self.parent is not None:
+                    for breed in self.model.breeds: 
+                                setattr(self, breed, getattr(self.parent, breed))
                     # place herder first in list
                     shuffle_breeds = copy.copy(self.model.primary_breeds)
                     random.shuffle(shuffle_breeds)
@@ -89,7 +97,7 @@ class Agent():
                     for breed_ in ["herder"] + shuffle_breeds:
                         if random.random() < self.mutate_rate:
                             # if mutation occurs, switch breed boolean
-                            select_breed = False if getattr(self, breed_) else True
+                            select_breed = False if getattr(parent, breed_) else True
                             setattr(self, breed_, select_breed)
                             
                             if select_breed == True and breed_ in shuffle_breeds:
@@ -98,11 +106,10 @@ class Agent():
                                     setattr(self, not_my_breed, False)
                                 break
                     # set breed basic if all breeds are turned to False
+                    check_breeds = copy.copy(self.model.primary_breeds)
                     if True not in (getattr(self, brd)
-                                    for brd in self.model.primary_breeds):
-                        if "basic" in self.model.primary_breeds: 
-                            self.setBreedBasic(herder = self.herder)
-                        else: 
+                                    for brd in check_breeds):
+                        
                             for breed in self.model.breeds: 
                                 setattr(self, breed, getattr(self.parent, breed))
 
@@ -117,6 +124,8 @@ class Agent():
                     # All initial agents are basic, other breeds only 
                     # appear through mutation
                     self.setBreedBasic(herder = False)
+
+           
                     
                 self.selectBreedParameters(mutate, self.parent, 
                                            herding = False)
@@ -220,6 +229,8 @@ class Agent():
         self.id = ID
         self.reproduced = False
 
+
+
 ###############################################################################     
     def setBreedBasic(self, herder):
         if "basic" in self.model.primary_breeds: 
@@ -230,6 +241,7 @@ class Agent():
             self.basic = False
         self.arbitrageur = False
         self.herder = herder
+        
 
     def selectBreedParameters(self, mutate, parent, herding = False, 
                               partner = None):
@@ -305,9 +317,11 @@ class Agent():
     
     def updateParams(self, trade = False):
 
+
         for good in self.model.goods: 
                 self.wealth_by_good[good] = (getattr(self,good) / self.model.consumption_rate[good])
-        self.wealth = sum(list(self.wealth_by_good.values()))# / len(self.model.goods)
+        #self.wealth = sum(list(self.wealth_by_good.values()))# / len(self.model.goods)
+ 
         
 
         def setTargetGood():
@@ -366,11 +380,13 @@ class Agent():
                     self.reservation_demand[othergood]["price"] *= self.price_change
                     self.reservation_demand[othergood]["quantity"] /= self.quantity_change
                     self.reservation_demand[good]["price"] = 1 / self.reservation_demand[othergood]["price"]
+                    #break
 
                 elif getattr(self, othergood) > self.reservation_demand[othergood]["quantity"]:
                     self.reservation_demand[othergood]["price"] /= self.price_change
                     self.reservation_demand[othergood]["quantity"] *= self.quantity_change
                     self.reservation_demand[good]["price"] = 1 / self.reservation_demand[othergood]["price"]
+                    #break
 
 
 
@@ -386,38 +402,73 @@ class Agent():
             #self.reservation_demand["sugar"]["price"] = self.wealth_by_good["sugar"] / self.wealth
             if self.wealth_by_good["water"] > 0 and self.wealth_by_good["sugar"] > 0: 
                 self.MRS = self.wealth_by_good["water"] / self.wealth_by_good["sugar"]
-                self.utility = (self.wealth_by_good["sugar"] ** self.sugar_utility_weight) * (self.wealth_by_good["water"] ** self.water_utility_weight)
+            else: 
+                if trade: 
+                    print(self.wealth_by_good["water"])
+                    print("MRS: " + str(self.MRS))
+                self.MRS = None
+               # self.utility = sqrt(self.wealth_by_good["sugar"]) * sqrt(self.wealth_by_good["water"])
         
             
         if not trade: 
+
+            self.prev_wealth = self.wealth
+            
+            self.wealth = sum(list(self.wealth_by_good.values()))
+
+            self.period_savings = self.wealth - self.prev_wealth
             setTargetGood()
+
+            self.period_income = self.period_consumption + self.period_savings
 
         # print(self.id)
         if self.optimizer: 
             checkReservationOptimizer()
 
         elif not trade: 
+            
             checkReservation()
 
 
 
 
     def consume(self):
+        self.period_consumption = 0
+        i = 0
         for good, rate in self.model.consumption_rate.items():
-            setattr(self,good, getattr(self,good) - rate)
-            
+            curr_level = getattr(self, good)
+            if curr_level < self.model.consumption_rate[good]: 
+                setattr(self, good, curr_level - curr_level)
+                self.period_consumption += curr_level
+            else: 
+                setattr(self, good, curr_level - rate)
+                self.period_consumption += rate
+
+
+        
             
     
     def check_alive(self):
         alive = True
         for good in self.model.goods:
-            if getattr(self, good) < 0:
+            if getattr(self, good) <= 0:
                 alive = False 
+                agent_patch = self.model.patches_dict[self.row][self.col]
                 # self.model.dead_agent_dict[self.id] = self
-                self.model.empty_patches[self.row, self.col] = self.model.patches_dict[self.row][self.col]
+                self.model.empty_patches[self.row, self.col] = agent_patch
                 if self.model.live_visual:
                     self.model.GUI.canvas.delete(self.image)
+
+                # agent drops goods on patch when they die 
+                othergood = "water" if good == "sugar" else "sugar"
+                if getattr(self, agent_patch.good) > 0: 
+                    agent_patch.Q += getattr(self, agent_patch.good)
+                elif getattr(self, othergood) > 1: 
+                    print("goods not counted in wealth: " + str(getattr(self, othergood)))
+                
+                
                 del self.model.agent_dict[self.id]
+                
 
                 return alive 
         return alive 
@@ -425,10 +476,7 @@ class Agent():
             
     def reproduce(self):
         if self.sugar > self.reproduction_criteria["sugar"] and\
-            self.water > self.reproduction_criteria["water"] and\
-            self.sugar > self.model.goods_params["sugar"]["max"]*2 and\
-            self.water > self.model.goods_params["water"]["max"]*2:
-            # make sure inherited values are up to date
+            self.water > self.reproduction_criteria["water"] :
 
             self.model.total_agents_created += 1
             row, col = self.model.chooseRandomEmptyPatch()  
@@ -443,12 +491,17 @@ class Agent():
             self.reproduced = True
 
     def getPatchUtility(self, patch): 
+    
         if patch.good == "sugar": 
-            new_utility = ((self.wealth_by_good["sugar"] + (patch.Q / self.model.consumption_rate["sugar"]))  ** self.sugar_utility_weight) * (self.wealth_by_good["water"] ** self.water_utility_weight)
+            new_utility = (self.wealth_by_good["sugar"] + (patch.Q / self.model.consumption_rate["sugar"])) ** self.model.consumption_rate["sugar"]\
+                  * (self.wealth_by_good["water"]) ** self.model.consumption_rate["water"]
         elif patch.good == "water": 
-            new_utility = (self.wealth_by_good["sugar"]  ** self.sugar_utility_weight) * ((self.wealth_by_good["water"] + (patch.Q / self.model.consumption_rate["water"])) ** self.water_utility_weight)
+            new_utility = (self.wealth_by_good["sugar"]) ** self.model.consumption_rate["sugar"]\
+                  * (self.wealth_by_good["water"] + (patch.Q / self.model.consumption_rate["water"])) ** self.model.consumption_rate["water"]
         else: 
-            new_utility = 0
+            #print(new_utility)
+            new_utility = 0 
+      
 
         return new_utility
 
@@ -570,51 +623,60 @@ class Agent():
     def harvest(self):    
         agent_patch = self.model.patches_dict[self.row][self.col]
         setattr(self, agent_patch.good, getattr(self, agent_patch.good) + agent_patch.Q)
+
         agent_patch.Q = 0 
-
-    def paretoImproving(self, price, target): 
-        new_wealth = {"water": 0, "sugar": 0}
-        pareto_improvement = False
-        # if target == "water": 
-        #     if price >= 1: 
-        #         new_wealth["water"] = self.wealth_by_good["water"] + (price / 0.5)
-        #         new_wealth["sugar"] = self.wealth_by_good["sugar"] - (1 / 0.5)
-        #     elif price < 1: 
-        #         new_wealth["water"] = self.wealth_by_good["water"] + (1 / 0.5)
-        #         new_wealth["sugar"] = self.wealth_by_good["sugar"] - ((1/price) / 0.5)
-            
-        # elif target == "sugar": 
-        #     if price >= 1: 
-        #         new_wealth["water"] = self.wealth_by_good["water"] - (price / 0.5)
-        #         new_wealth["sugar"] = self.wealth_by_good["sugar"] + (1 / 0.5)
-        #     elif price < 1: 
-        #         new_wealth["water"] = self.wealth_by_good["water"] - (1 / 0.5)
-        #         new_wealth["sugar"] = self.wealth_by_good["sugar"] + ((1/price) / 0.5)
-        # else: 
-        #     print(target, self, price)
-        if target == "water": 
-            if price >= 1: 
-                new_wealth[self.target] = (getattr(self, self.target) + 1) * 2
-                new_wealth[self.not_target] = (getattr(self, self.not_target) - price) * 2
+    
+    def prospective_MRS(self, price): 
+        
+            if self.target == "water": 
+                if price >= 1 and self.wealth_by_good["sugar"] - 2 > 0: 
+                    return (self.wealth_by_good["water"] + 2*price) / (self.wealth_by_good["sugar"] - 2)
+                elif self.wealth_by_good["sugar"] - 2*(1/price) > 0: 
+                    return (self.wealth_by_good["water"] + 2) / (self.wealth_by_good["sugar"] - 2*(1/price))
+                else: 
+                    return 0
             else: 
-                new_wealth[self.target] = (getattr(self, self.target) + 1) * 2
-                new_wealth[self.not_target] = (getattr(self, self.not_target) - 1/price) * 2
-        else: 
-            if price >= 1: 
-                new_wealth[self.target] = (getattr(self, self.target) + 1) * 2
-                new_wealth[self.not_target] = (getattr(self, self.not_target) - price) * 2
+                if price >= 1 and self.wealth_by_good["water"] - 2*price > 0 : 
+                    return (self.wealth_by_good["water"] - 2*price) / (self.wealth_by_good["sugar"] + 2)
+                elif self.wealth_by_good["water"] - 2 > 0: 
+                    return (self.wealth_by_good["water"] - 2) / (self.wealth_by_good["sugar"] + 2*(1/price))
+                else: 
+                    return 0
+                
+
+    def transfer(self, partner, price, num_trades):
+            if self.target == "water": 
+                # self gets water, partner gets sugar 
+                if price >= 1: 
+                    water = price * num_trades
+                    sugar = num_trades
+                    setattr(self, self.target, (getattr(self, self.target) + water) )
+                    setattr(self, self.not_target, (getattr(self, self.not_target) - sugar) )
+                    setattr(partner, self.target, (getattr(partner, self.target) - water))
+                    setattr(partner, self.not_target, getattr(partner, self.not_target) + sugar)
+                else: 
+                    water = num_trades
+                    sugar = (1/price) * num_trades
+                    setattr(self, self.target, (getattr(self, self.target) + water)) 
+                    setattr(self, self.not_target, (getattr(self, self.not_target) - sugar) )
+                    setattr(partner, self.target, (getattr(partner, self.target) - water))
+                    setattr(partner, self.not_target, getattr(partner, self.not_target) + sugar)
             else: 
-                new_wealth[self.target] = (getattr(self, self.target) + 1) * 2
-                new_wealth[self.not_target] = (getattr(self, self.not_target) - 1/price) * 2
-
-
-         
-        if new_wealth["water"] > 0 and new_wealth["sugar"] > 0: 
-            new_utility = (new_wealth["sugar"] ** self.sugar_utility_weight) * (new_wealth["water"] ** self.water_utility_weight)
-            if new_utility > self.utility: 
-                pareto_improvement = True 
-
-        return pareto_improvement
+                # self gets sugar partner gets water 
+                if price >= 1: 
+                    water = price * num_trades
+                    sugar = num_trades
+                    setattr(self, self.target, (getattr(self, self.target) + sugar) )
+                    setattr(self, self.not_target, (getattr(self, self.not_target) - water) )
+                    setattr(partner, self.target, (getattr(partner, self.target) - sugar ))
+                    setattr(partner, self.not_target, getattr(partner, self.not_target) + water)
+                else: 
+                    water = num_trades
+                    sugar = (1/price) * num_trades
+                    setattr(self, self.target, (getattr(self, self.target) + sugar) )
+                    setattr(self, self.not_target, (getattr(self, self.not_target) - water ))
+                    setattr(partner, self.target, (getattr(partner, self.target) - sugar ))
+                    setattr(partner, self.not_target, getattr(partner, self.not_target) + water)
         
     def trade(self):
         
@@ -656,39 +718,48 @@ class Agent():
                 price, can_trade = (gmean((WTA, WTP)), True) if WTP > WTA else (None, False)
             elif partner.optimizer and self.optimizer: 
                     # partner values water more than self 
-                    if self.MRS > partner.MRS: 
+                    positive_MRSs = self.MRS > 0 and partner.MRS > 0
+                    if self.MRS > partner.MRS and positive_MRSs: 
                         self.target = "sugar"
                         self.not_target = "water"
                         partner.target = "water"
                         partner.not_target = "sugar"
-                        price = np.sqrt(self.MRS * partner.MRS)
-                        if getattr(partner, "sugar") > 1 and getattr(self, "water") > price: 
-                            can_trade = True
+                        price = sqrt(self.MRS * partner.MRS)
+                        if price >= 1: 
+                            if getattr(partner, "sugar") > 1 and getattr(self, "water") > price: 
+                                can_trade = True
+                        else: 
+                            if getattr(partner, "sugar") > 1/price and getattr(self, "water") > 1: 
+                                can_trade = True 
                     # partner values sugar more than self 
-                    elif self.MRS < partner.MRS: 
+                    elif self.MRS < partner.MRS and positive_MRSs: 
                         self.target = "water"
                         self.not_target = "sugar"
                         partner.target = "sugar"
                         partner.not_target = "water"
-                        price = np.sqrt(self.MRS * partner.MRS)
-                        if getattr(partner, "water") > 1 and getattr(self, "sugar") > 1/price:
-                            can_trade = True
+                        price = sqrt(self.MRS * partner.MRS)
+                        if price >= 1: 
+                            if getattr(self, "sugar") > 1 and getattr(partner, "water") > price: 
+                                can_trade = True
+                        else: 
+                            if getattr(self, "sugar") > 1/price and getattr(partner, "water") > 1: 
+                                can_trade = True 
                     elif self.MRS == partner.MRS: 
                         can_trade = False
                         price = None
                     else: 
                         price, can_trade = None, False 
-                        print(self.MRS, partner.MRS)
+                        #print(self.MRS, partner.MRS)
             elif self.optimizer and not partner.optimizer: 
                     if self.MRS > partner.reservation_demand["sugar"]["price"]: 
                         self.target = "sugar"
                         self.not_target = "water"
-                        price = np.sqrt(self.MRS * partner.reservation_demand["sugar"]["price"])
+                        price = sqrt(self.MRS * partner.reservation_demand["sugar"]["price"])
                         can_trade = self.target != partner.target
                     elif self.MRS < partner.reservation_demand["water"]["price"]: 
                         self.target = "water"
                         self.not_target = "sugar"
-                        price = np.sqrt(self.MRS * partner.reservation_demand["water"]["price"])
+                        price = sqrt(self.MRS * partner.reservation_demand["water"]["price"])
                         can_trade = self.target != partner.target 
                     else: 
                         can_trade = False
@@ -697,12 +768,12 @@ class Agent():
                     if partner.MRS > self.reservation_demand["sugar"]["price"]: 
                         partner.target = "sugar"
                         partner.not_target = "water"
-                        price = np.sqrt(partner.MRS * self.reservation_demand["sugar"]["price"])
+                        price = sqrt(partner.MRS * self.reservation_demand["sugar"]["price"])
                         can_trade = partner.target != self.target
                     elif partner.MRS < self.reservation_demand["water"]["price"]: 
                         partner.target = "water"
                         partner.not_target = "sugar"
-                        price = np.sqrt(partner.MRS* self.reservation_demand["water"]["price"])
+                        price = sqrt(partner.MRS* self.reservation_demand["water"]["price"])
                         can_trade = partner.target != self.target
                     else: 
                         can_trade = False
@@ -711,149 +782,115 @@ class Agent():
 
             return price, can_trade
         
-        def transfer(partner, price):
-            if self.target == "water": 
-                if price >= 1: 
-                    setattr(self, self.target, (getattr(self, self.target) + 1) )
-                    setattr(self, self.not_target, (getattr(self, self.not_target) - price) )
-                    setattr(partner, self.target, (getattr(partner, self.target) - 1))
-                    setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
-                else: 
-                    setattr(self, self.target, (getattr(self, self.target) + 1/price) )
-                    setattr(self, self.not_target, (getattr(self, self.not_target) - 1) )
-                    setattr(partner, self.target, (getattr(partner, self.target) - 1/price))
-                    setattr(partner, self.not_target, getattr(partner, self.not_target) + 1)
-            else: 
-                if price >= 1: 
-                    setattr(self, self.target, (getattr(self, self.target) + price) )
-                    setattr(self, self.not_target, (getattr(self, self.not_target) - 1) )
-                    setattr(partner, self.target, (getattr(partner, self.target) - price ))
-                    setattr(partner, self.not_target, getattr(partner, self.not_target) + 1)
-                else: 
-                    setattr(self, self.target, (getattr(self, self.target) + 1) )
-                    setattr(self, self.not_target, (getattr(self, self.not_target) - 1/price) )
-                    setattr(partner, self.target, (getattr(partner, self.target) - 1 ))
-                    setattr(partner, self.not_target, getattr(partner, self.not_target) + 1/price)
 
 
                     
                 
 
         def executeTrade(partner, price):
-            self_res_min = self.reservation_demand[self.not_target]["quantity"]
-            partner_res_min = partner.reservation_demand[self.target]["quantity"]
-            #   optimizers must trade iteratively for now, the number of tradees could be precalculated later on. 
+            def can_still_trade(): 
+                # helper function for executeTrade; used in while loop to continue trading
+                # basic agents need to 1. remain above their reservation demands for the good they are losing and 2. be able to afford the trade 
+                if self.target == "water":
+                    if price >= 1: 
+                        valid_trade = getattr(self, "sugar") > self_res_min > price and getattr(partner, "water") > partner_res_min > 1 
+                    else: 
+                        valid_trade = getattr(self, "sugar") > self_res_min > 1 and getattr(partner, "water") > partner_res_min > 1/price 
+                else: 
+                    if price >= 1: 
+                        valid_trade = getattr(partner, "sugar") > self_res_min > price and getattr(self, "water") > partner_res_min > 1
+                    else: 
+                        valid_trade = getattr(partner, "sugar") > self_res_min > 1 and getattr(self, "water") > partner_res_min > 1/price 
+                            
+        
+                return valid_trade
+
             if not self.optimizer and not partner.optimizer: 
-                # calculate how many trades each agent would make to arrive at their 
-                # reservation demand for the good they are giving away
-            
-                self_excess_demand = getattr(self, self.not_target) - self_res_min
-                partner_excess_demand = getattr(partner, self.target) - partner_res_min
-                self_max_trades = np.floor(self_excess_demand / price)
-                partner_max_trades = np.floor(partner_excess_demand)
+                # basics have reservation demands for the good they are losing. These are the minimum quantity of the good they want in reserves: 
+                self_res_min = self.reservation_demand[self.not_target]["quantity"]
+                partner_res_min = partner.reservation_demand[self.target]["quantity"]
 
-                # number of trades is determined by which agent has to stop trading first 
-                num_trades = min(self_max_trades, partner_max_trades)
-                if num_trades > 1 and self_excess_demand > price  and partner_excess_demand > 1: 
-                    
-            
-                    # adjust values of goods for agents based on how many trades were made 
-                    setattr(self, self.not_target, (getattr(self, self.not_target) - (num_trades * price)))
-                    setattr(self, self.target, (getattr(self, self.target) + num_trades))
-                    setattr(partner, self.target, (getattr(partner, self.target) - num_trades))
-                    setattr(partner, self.not_target, (getattr(partner, self.not_target) + (num_trades * price)))
-
+                # while the agents remain above their reservation demand for the good they are losing and can afford the trade 
+                while (can_still_trade()): 
+                    self.transfer(partner, price, 1)
+                    # save price of sugar or implied price of sugar for every exchange
                     transaction_price = price if self.target == "sugar" else 1 / price
                     self.model.transaction_prices[self.target].append(transaction_price)
-                    self.model.transaction_weights[self.target].append(num_trades)
+                    
                     self.model.all_prices.append(transaction_price)
-                    self.model.all_prices_weights.append(num_trades)
-                    self.model.total_exchanges += num_trades
+                    
+                    self.model.total_exchanges += 1
                     if self.arbitrageur:
                             self.expected_price =  (self.expected_price * (
-                                self.present_price_weight) + num_trades * transaction_price) / (self.present_price_weight + num_trades)
+                                self.present_price_weight) + transaction_price) / (self.present_price_weight)
                             
             elif self.optimizer and partner.optimizer: 
 
                 if self.MRS > partner.MRS: # self is relatively richer in water than partner 
-
-                    while (self.MRS > partner.MRS and self.paretoImproving(price, self.target) and partner.paretoImproving(price, partner.target)):
-                            transfer(partner, price)
+                    while (self.prospective_MRS(price) > price > partner.prospective_MRS(price)):# > 0 and partner.prospective_MRS(price) < price < self.prospective_MRS(price)): 
+                               
+                            self.transfer(partner, price, 1)
                             
-                            # save price of sugar or implied price of sugar for every exchange
+                            
                             transaction_price = price if self.target == "sugar" else 1 / price
-                            self.model.transaction_prices[self.target].append(price)
-                            self.model.transaction_weights[self.target].append(1)
-                            self.model.all_prices.append(price)
-                            self.model.all_prices_weights.append(1)
+                            self.model.transaction_prices[self.target].append(transaction_price)
+                            self.model.all_prices.append(transaction_price)
                             self.model.total_exchanges += 1
                             self.updateParams(trade=True)
                             partner.updateParams(trade=True)
 
-                            price = np.sqrt(self.MRS * partner.MRS)
+                            price = sqrt(self.MRS * partner.MRS) 
                             if self.arbitrageur:
                                 self.expected_price = (self.expected_price * (
                                     self.present_price_weight) + transaction_price) / self.present_price_weight
                                 
                 elif self.MRS < partner.MRS: 
-                        
-                        while (self.MRS < partner.MRS and self.paretoImproving(price, self.target) and partner.paretoImproving(price, partner.target)): 
-                    
-                            transfer(partner, price)
-                            
-                            # save price of sugar or implied price of sugar for every exchange
-                            transaction_price = price if self.target == "sugar" else 1 / price
-                            self.model.transaction_prices[self.target].append(price)
-                            self.model.transaction_weights[self.target].append(1)
-                            self.model.all_prices.append(price)
-                            self.model.all_prices_weights.append(1)
-                            self.model.total_exchanges += 1
-                            self.updateParams(trade=True)
-                            partner.updateParams(trade=True)
-                            # self.MRS = self.wealth_by_good["water"] / self.wealth_by_good["sugar"]
-                            # partner.MRS = partner.wealth_by_good["water"] / partner.wealth_by_good["sugar"]
-                            price = np.sqrt(self.MRS * partner.MRS)
-                            if self.arbitrageur:
-                                self.expected_price = (self.expected_price * (
-                                    self.present_price_weight) + transaction_price) / self.present_price_weight
-                                
-                                
-            elif self.optimizer and not partner.optimizer:
-                if self.MRS > price: 
-                    while (self.MRS > price and getattr(partner, "water") > partner_res_min + 1 and self.paretoImproving(price, "sugar")):
-                            
-                            setattr(self, self.target, getattr(self, self.target) + 1)
-                            setattr(self, self.not_target, getattr(self, self.not_target) - price)
-                            setattr(partner,self.target, getattr(partner, self.target) - 1)
-                            setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+        
+                    while (self.prospective_MRS(price) < price < partner.prospective_MRS(price)):# > 0 and self.prospective_MRS(price) < price < partner.prospective_MRS(price)): 
+                          
+                            self.transfer(partner, price, 1)
                             
                             # save price of sugar or implied price of sugar for every exchange
                             transaction_price = price if self.target == "sugar" else 1 / price
                             self.model.transaction_prices[self.target].append(transaction_price)
-                            self.model.transaction_weights[self.target].append(1)
                             self.model.all_prices.append(transaction_price)
-                            self.model.all_prices_weights.append(1)
                             self.model.total_exchanges += 1
                             self.updateParams(trade=True)
-                            price = np.sqrt(self.MRS * partner.reservation_demand["sugar"]["price"])
+                            partner.updateParams(trade=True)
+
+                            price = sqrt(self.MRS * partner.MRS)
+                            if partner.arbitrageur:
+                                partner.expected_price = (partner.expected_price * (
+                                    partner.present_price_weight) + transaction_price) / partner.present_price_weight
+
+                                
+            elif self.optimizer and not partner.optimizer:
+                if self.MRS > price: 
+                    while (self.prospective_MRS(price) > price and getattr(partner, "water") > partner_res_min + 1):
+                         
+                            self.transfer(partner, price, 1)
+                            
+                            # save price of sugar or implied price of sugar for every exchange
+                            transaction_price = price if self.target == "sugar" else 1 / price
+                            self.model.transaction_prices[self.target].append(transaction_price)
+                            self.model.all_prices.append(transaction_price)
+                            self.model.total_exchanges += 1
+                            self.updateParams(trade=True)
+                            price = sqrt(self.MRS * partner.reservation_demand["sugar"]["price"])
                             if self.arbitrageur:
                                 self.expected_price = (self.expected_price * (
                                     self.present_price_weight) + transaction_price) / self.present_price_weight
                 elif self.MRS < price:  
                         
-                        while (self.MRS < price and getattr(partner, self.target) > partner_res_min + 1 and self.paretoImproving(price, "water")): 
+                        while (self.prospective_MRS(price) < price and getattr(partner, self.target) > partner_res_min + 1): 
                     
-                            setattr(self, self.target, getattr(self, self.target) + 1)
-                            setattr(self, self.not_target, getattr(self, self.not_target) - price)
-                            setattr(partner,self.target, getattr(partner, self.target) - 1)
-                            setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+                         
+                            self.transfer(partner, price, 1)
                             
                             # save price of sugar or implied price of sugar for every exchange
                             transaction_price = price if self.target == "sugar" else 1 / price
                             self.model.transaction_prices[self.target].append(transaction_price)
-                            self.model.transaction_weights[self.target].append(1)
                             self.model.all_prices.append(transaction_price)
-                            self.model.all_prices_weights.append(1)
                             self.model.total_exchanges += 1
                             self.updateParams(trade=True)
                             price = np.sqrt(self.MRS * partner.reservation_demand["water"]["price"])
@@ -865,19 +902,14 @@ class Agent():
 
             elif not self.optimizer and partner.optimizer:
                 if partner.MRS > price: 
-                    while (partner.MRS > price and getattr(self, partner.target) > self_res_min + 1 and partner.paretoImproving(price, "sugar")):
-                            
-                            setattr(self, self.target, getattr(self, self.target) + 1)
-                            setattr(self, self.not_target, getattr(self, self.not_target) - price)
-                            setattr(partner,self.target, getattr(partner, self.target) - 1)
-                            setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+                    while (partner.prospective_MRS(price) > price and getattr(self, partner.target) > self_res_min + 1):
+                       
+                            partner.transfer(self, price, 1)
                             
                             # save price of sugar or implied price of sugar for every exchange
                             transaction_price = price if self.target == "sugar" else 1 / price
                             self.model.transaction_prices[self.target].append(transaction_price)
-                            self.model.transaction_weights[self.target].append(1)
                             self.model.all_prices.append(transaction_price)
-                            self.model.all_prices_weights.append(1)
                             self.model.total_exchanges += 1
                             partner.updateParams(trade=True)
                             price = np.sqrt(partner.MRS * self.reservation_demand["sugar"]["price"])
@@ -886,19 +918,14 @@ class Agent():
                                     self.present_price_weight) + transaction_price) / self.present_price_weight
                 elif partner.MRS < price:  
                         
-                        while (partner.MRS < price and getattr(self, partner.target) >  self_res_min + 1 and partner.paretoImproving(price, "water")): 
+                        while (partner.prospective_MRS(price) < price and getattr(self, partner.target) >  self_res_min + 1): 
                     
-                            setattr(self, self.target, getattr(self, self.target) + 1)
-                            setattr(self, self.not_target, getattr(self, self.not_target) - price)
-                            setattr(partner,self.target, getattr(partner, self.target) - 1)
-                            setattr(partner, self.not_target, getattr(partner, self.not_target) + price)
+                            partner.transfer(self, price, 1)
                             
                             # save price of sugar or implied price of sugar for every exchange
                             transaction_price = price if self.target == "sugar" else 1 / price
                             self.model.transaction_prices[self.target].append(transaction_price)
-                            self.model.transaction_weights[self.target].append(1)
                             self.model.all_prices.append(transaction_price)
-                            self.model.all_prices_weights.append(1)
                             self.model.total_exchanges += 1
                             partner.updateParams(trade=True)
                             price = np.sqrt(partner.MRS * self.reservation_demand["water"]["price"])
@@ -972,5 +999,5 @@ class Agent():
                     #  genetic?
                     # only trade with one partner per agent search
                     # agents can be selected by more than one partner
-                    # if not self.optimizer: 
+                    
                     break
