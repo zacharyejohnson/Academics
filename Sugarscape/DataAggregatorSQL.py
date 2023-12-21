@@ -17,7 +17,7 @@ class DataAggregatorSQL:
                 host="localhost",
                 database="Sugarscape",
                 user="postgres",
-                password="Century109.iwmng")
+                password="********************")
             return conn
         except Exception as e:
             print("Error connecting to PostgreSQL database:", e)
