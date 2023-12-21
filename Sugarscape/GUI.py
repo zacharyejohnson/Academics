@@ -1,34 +1,57 @@
-import copy
-import gc
 import os
 import time
-from tkinter import *
-
-from DataAggregator import *
+import random
+import multiprocess
+from tkinter import Tk, Canvas
+from DataAggregator import DataAggregator
+from DataAggregatorSQL import DataAggregatorSQL
 from memory_profiler import memory_usage
+import gc
+from Model import Model
 
-from Model import *
+class GUI:
+    """
+    This class handles the graphical user interface for the Sugarscape simulation.
+    It creates and manages the visualization of agents and patches, and integrates with the model for simulation runs.
+    """
 
-
-class GUI():
     def __init__(self, name, run, num_agents, live_visual, plots, model_primary_breeds, 
-                 every_t_frames_GUI = 2, every_t_frames_plots=100, 
-                 mutate = True, genetic = True, agent_attributes=None, 
-                 model_attributes = None):
+                every_t_frames_GUI=1, every_t_frames_plots=100, 
+                mutate=True, genetic=True, agent_attributes=None, 
+                model_attributes=None, data_agg = None):
+        """
+        Initializes the GUI with the given parameters and creates the visualization components if live_visual is True.
+
+        Args:
+            name (str): Name identifier for the simulation run.
+            run (int): Current run number.
+            num_agents (int): Number of agents to simulate.
+            live_visual (bool): Whether to show live visualization.
+            plots (bool): Whether to generate plots.
+            model_primary_breeds (list): List of primary breeds in the model.
+            every_t_frames_GUI (int): Update frequency for GUI frames.
+            every_t_frames_plots (int): Update frequency for plotting.
+            mutate (bool): Flag to enable/disable mutation in agents.
+            genetic (bool): Flag to enable/disable genetic algorithms.
+            agent_attributes (list): List of agent attributes for data collection.
+            model_attributes (list): List of model attributes for data collection.
+        """
         if live_visual:
             self.parent = Tk()
+
         self.name = name
         self.run = run
         self.plots = plots
-        self.model = Model(self, num_agents, mutate, genetic, live_visual, plots, agent_attributes, model_attributes, primary_breeds = model_primary_breeds)
+        self.model = Model(self, num_agents, mutate, genetic, live_visual, plots, agent_attributes, model_attributes, primary_breeds=model_primary_breeds)
         self.dimPatch = 16
         self.live_visual = live_visual
         self.every_t_frames_GUI = every_t_frames_GUI
         self.every_t_frames_plots = every_t_frames_plots
+        self.data_agg = data_agg
 
         if self.live_visual: 
             canvasWidth = self.model.cols * self.dimPatch
-            canvasHeight= self.model.rows * self.dimPatch
+            canvasHeight = self.model.rows * self.dimPatch
             self.canvas = Canvas(self.parent, width=canvasWidth, height=canvasHeight, background="white")
             self.canvas.pack()
             self.drawPatches()
@@ -36,151 +59,213 @@ class GUI():
             self.canvas.update()
             
     def drawPatches(self):
+        """
+        Draws the patches on the canvas using the patch attributes from the model.
+        """
         for i in self.model.patches_dict:
-            for patch in self.model.patches_dict[i].values():    
+            for patch in self.model.patches_dict[i].values():
                 patch.image = self.canvas.create_rectangle(
-                            #left x                     
- 					patch.col * self.dimPatch,
-                            #top y
- 					patch.row * self.dimPatch,
-                            #right x
- 					(patch.col + 1) * self.dimPatch,
-                            #bottom y
- 					(patch.row + 1) * self.dimPatch,
- 					fill=self.color(patch.Q - 1, patch.good),
- 					width=0) #Border width = 0
-                
+                    patch.col * self.dimPatch,  # Left x coordinate
+                    patch.row * self.dimPatch,  # Top y coordinate
+                    (patch.col + 1) * self.dimPatch,  # Right x coordinate
+                    (patch.row + 1) * self.dimPatch,  # Bottom y coordinate
+                    fill=self.color(patch.Q - 1, patch.good),  # Color based on quantity and type
+                    width=0  # Border width set to 0 for a filled rectangle
+                )
+
     def drawAgent(self, agent):
+        """
+        Draws an individual agent on the canvas.
+
+        Args:
+            agent: The agent object to be drawn.
+        """
         agent.image = self.canvas.create_oval(
- 			agent.col * self.dimPatch + 2,
- 			agent.row * self.dimPatch + 2,
- 			(agent.col + 1) * self.dimPatch - 2,
- 			(agent.row + 1)* self.dimPatch - 2,
- 			fill='red',
- 			width=0
-		)
+            agent.col * self.dimPatch + 2,
+            agent.row * self.dimPatch + 2,
+            (agent.col + 1) * self.dimPatch - 2,
+            (agent.row + 1) * self.dimPatch - 2,
+            fill='red',  # Initial color; this could be modified based on agent properties
+            width=0  # Border width
+        )
 
     def drawAgents(self):
-        for agent in self.model.agent_dict.values(): 
+        """
+        Iterates through all agents in the model and draws them.
+        """
+        for agent in self.model.agent_dict.values():
             self.drawAgent(agent)
 
-    def moveAgents(self):   
+    def moveAgents(self):
+        """
+        Moves agents on the canvas based on their updated positions in the model.
+        """
         for agent in self.model.agent_dict.values():
-            self.canvas.move(agent.image, 
- 			agent.dx * self.dimPatch,
- 			agent.dy * self.dimPatch)
+            self.canvas.move(agent.image, agent.dx * self.dimPatch, agent.dy * self.dimPatch)
             color, outline = self.agentColor(agent)
-            self.canvas.itemconfig(agent.image,
-                                   fill = color,
-                                   outline = outline, 
-                                   width = 2)
-    
+            self.canvas.itemconfig(agent.image, fill=color, outline=outline, width=2)
+
     def agentColor(self, agent):
-        if agent.basic:
-            color = "red"
+        """
+        Determines the color and outline of an agent based on its properties.
+
+        Args:
+            agent: The agent object.
+
+        Returns:
+            Tuple (color, outline): The color and outline for the agent.
+        """
+        color = "red"  # Default color
         if agent.arbitrageur:
             color = "green"
-        if agent.optimizer: 
+        if agent.optimizer:
             color = "magenta"
         outline = "black" if agent.herder else color
         return color, outline
-    
+
     def updatePatches(self):
+        """
+        Updates the color of patches on the canvas based on their current state.
+        """
         for i in self.model.patches_dict:
-            for patch in self.model.patches_dict[i].values():    
-                self.canvas.itemconfig(patch.image, fill=self.color(patch.Q, 
-                                                                    patch.good))
+            for patch in self.model.patches_dict[i].values():
+                self.canvas.itemconfig(patch.image, fill=self.color(patch.Q, patch.good))
+
     def color(self, q, good):
-        if q > 5: 
+        """
+        Determines the color for a patch based on its quantity and type.
+
+        Args:
+            q (int): Quantity level of the patch.
+            good (str): The type of good (e.g., 'sugar').
+
+        Returns:
+            str: Hexadecimal color string.
+        """
+        if q > 5:
             q = 5
-        rgb = (255 - 3 * q,255 - 10 * q,255 - 51*q) if good == "sugar" else (30 - 3 * q, 50 - 5 * q ,255 - 35*q)
+        q = int(q)
+        if good == "sugar":
+            rgb = (255 - 3 * q, 255 - 10 * q, 255 - 51 * q)
+        else:
+            rgb = (30 - 3 * q, 50 - 5 * q, 255 - 35 * q)
+
         color = '#'
         for v in rgb:
             hx = hex(v)[2:]
-            while len(hx) < 2: 
-                hx = '0' + hx
+            hx = hx.zfill(2)  # Ensure hexadecimal is two characters
             color += hx
         return color
 
-agent_attributes = []#"water", "sugar", "wealth", "basic",
-                      #  "herder", "arbitrageur"]
+
+# List of attributes to be monitored for agents and the model
+agent_attributes = []  # Attributes like "water", "sugar", "wealth", etc. (currently empty)
 model_attributes = ["population", "total_exchanges", "total_agents_created", "total_avg_price",
-                     "runtime", "agent_wealth",
-                     #"water_avg_price", "sugar_avg_price", "price_variance",# "water_variance", "sugar_variance",
-                       "real_income_per_capital", "wealth_per_capita", "savings", "income", "consumption", 
-                      "num_basicherders", "num_arbitrageurherders", "num_basicbasics", "num_arbitrageurbasics"] 
-                        #"basicbasic_res_demand", "basicherder_res_demand", "arbitrageurbasic_res_demand", "arbitrageurherder_res_demand", "optimizer_MRS", "num_optimizers", 
-                        #"avg_heuristic_price_change"]
+                    "runtime", "agent_wealth",
+                    "real_income_per_capital", "wealth_per_capita", "savings", "income", "consumption", 
+                    "num_optimizers", "num_herders", "num_basics", "num_wealth_herders", "num_progenycount_herders",
+                    "mutate_rate", "price_change", "reservation_ratio", "reproduction_criteria_water", 
+                    "reproduction_criteria_sugar", "reproduction_ratio_water", "reproduction_ratio_sugar"]
 
-# need not include run with just arbitrageurs
-breed_sets = [["basic"], ["basic", "arbitrageur"], ["optimizer"], ["basic", "optimizer"], ["basic", "optimizer", "arbitrageur"]]
+# Set of primary breeds to be used in the simulation
+breed_sets = [["basic"], ["optimizer"], ["basic", "optimizer"]]
 
-# parent = Tk()
-# parent.title = "Sugarscape"
-# name = "Sugarscape"
-# run = 1
-# num_agents = 2000
-# periods = 1000
-# y = GUI(name, run, num_agents, live_visual = False, plots = True,
-#          every_t_frames_GUI = 5, every_t_frames_plots= 100,
-#           agent_attributes=agent_attributes, model_attributes=model_attributes)
-# y.model.runModel(periods)
-# parent.quit()
+# Number of runs and periods for the simulation
+#runs = 5
+#periods = 10000
+data_collecting = False  # Flag to indicate if data should be collected
+
+# Main loop for running simulations
+#for primary_breed_set in breed_sets:
+    # Adjusting periods based on the primary breed set
 
 
 
+def run_simulation(params):
+    primary_breed_set, mutate, genetic, run, data_collecting, agent_attributes,model_attributes = params
 
-runs = 10
-periods = 50000
-data_collecting = True  
+    periods = 5000 if primary_breed_set in [["basic", "optimizer"], ["optimizer"]] else 10000
 
-for primary_breed_set in breed_sets: 
+    # Iterating over different configurations
+    # for mutate in [True]:
+    #     for genetic in [True]:
     if data_collecting: 
-        data_agg = DataAggregator(primary_breed_set, agent_attributes, model_attributes)
-    for mutate in [True]:
-        for genetic in [True]:#(True, False):
-            name = "sugarscape"
-            if data_collecting:  
-                data_agg.prepSetting()
-            print("mutate", "genetic", sep = "\t")
-            print(mutate, genetic, sep = "\t")
-            print("trial", "agents", "periods", "time", sep = "\t")
-            gc.set_threshold(0)
-            for run in range(runs):
-                mem_usage = memory_usage(-1, interval=1)#, timeout=1)
-                print(run, "mem:", str(int(mem_usage[0]))  + " MB", sep = "\t")
-                if data_collecting: 
-                    data_agg.prepRun(name, str(run))
-                # parent.title"Sugarscape"
-                num_agents = 2000
-                start = time.time()
-                y = GUI(name + str(run), run, num_agents, live_visual = False, plots = False,
-                        model_primary_breeds= primary_breed_set, 
-                        mutate = mutate, genetic = genetic,
-                        agent_attributes = agent_attributes, 
-                        model_attributes = model_attributes)
-                y.model.runModel(periods)
-                # print(dict(y.model.data_dict))
-                if data_collecting: 
-                    data_agg.saveRun(name, str(run), y.model.data_dict)
-                # run_data = copy.copy(y.model.data_dict)
-                del y.model.data_dict
-                # final_num_agents = len(y.model.agent_dict)
-                if y.live_visual:
-                    y.parent.quit()
-                    y.parent.destroy()
-                end = time.time()
-                elapse = end - start
-                print("runtime:", int(elapse), sep = "\t")
+        data_agg = DataAggregatorSQL(primary_breed_set, agent_attributes, model_attributes)
 
-                # gc.collect()
-                # del run_data
-            if data_collecting: 
-                data_agg.saveDistributionByPeriodWithParquet(name, runs)
-                data_agg.plotDistributionByPeriod(name, runs)
-                data_agg.remove_shelves()
-                data_agg.remove_parquet()
+    name = "sugarscape"
+    print("mutate", "genetic", sep="\t")
+    print(mutate, genetic, sep="\t")
+    print("trial", "agents", "periods", "time", sep="\t")
 
+    # Setting garbage collection threshold
+    #gc.set_threshold()
 
-    # if __name__ == "__main__":
-    #     parent.mainloop()
+    # Running multiple simulation runs
+    #for run in range(runs):
+    mem_usage = memory_usage(-1, interval=1)
+    print(run, "mem:", str(int(mem_usage[0])) + " MB", sep="\t")
+
+    num_agents = 2000
+    start = time.time()
+    gui_instance = GUI(name + str(run), run, num_agents, live_visual=False, plots=True,
+                    model_primary_breeds=primary_breed_set, mutate=True, genetic=True,
+                    agent_attributes=agent_attributes, model_attributes=model_attributes, data_agg=data_agg)
+    
+    # Running the model for the specified number of periods
+    gui_instance.model.runModel(periods)
+
+    # Saving run data and cleaning up if data collection is enabled
+    if data_collecting: 
+        #data_agg.saveRun(gui_instance.name, str(gui_instance.run), gui_instance.model.data_dict)
+        del gui_instance.model.data_dict
+        gc.collect()
+        data_agg.close_connection()
+
+    # Closing the GUI visualization
+    if gui_instance.live_visual:
+        gui_instance.parent.quit()
+        gui_instance.parent.destroy()
+
+    # Calculating and printing runtime
+    end = time.time()
+    elapse = end - start
+    print("runtime:", int(elapse), "seconds", sep="\t")
+
+    return
+
+# Main loop for setting up multiprocessing
+if __name__ == '__main__':
+    print("running")
+    runs = 6
+    data_collecting = True  # Flag to indicate if data should be collected
+    mutate = True
+    genetic = True
+    
+
+    for primary_breed_set in breed_sets:
+        # Parameters for multiprocessing
+        pool = multiprocess.Pool(processes=multiprocess.cpu_count() // 3)  # decide how many cores to use 
+        # Initialize DataAggregator if data collection is enabled
+        tasks = []
+        for run in range(runs):
+            tasks.append((primary_breed_set, mutate, genetic, run, data_collecting, agent_attributes, model_attributes))
+            
+
+        
+
+        # Run simulations in parallel and close pool
+        with pool as p: 
+            p.map(run_simulation, tasks)
+            p.close()
+
+       # Saving and cleaning up data if data collection is enabled
+    #     if data_collecting: 
+    #        data_agg.saveDistributionByPeriodWithParquet("sugarscape", runs)
+    #        data_agg.close_connection()
+            
+    # if data_collecting:         
+    #        for primary_breed_set in breed_sets: 
+    #            data_agg.set_folder(primary_breed_set)
+
+    #            data_agg.remove_parquet()
+
